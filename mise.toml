@@ -1,0 +1,155 @@
+[tools]
+node = "22"
+python = "3.12"
+rust = "stable"
+uv = "latest"
+
+# compiles cli for release
+[tasks.build]
+run = "./scripts/build.sh"
+
+# compiles the cli in release mode and installs it to ~/.cargo/bin
+# this is used to run the production cli from the command line
+[tasks.build-cli-release]
+run = "cargo build --release -p gkg && cargo install --path crates/gkg"
+
+# runs the http server in debug mode
+# serves at http://localhost:27495
+# useful for pairing with the frontend
+[tasks.server-dev]
+run = "cargo run --bin dev-server"
+
+# Same thing as server-dev, but with reindexing enabled
+[tasks.server-dev-reindexing]
+run = "cargo run --bin dev-server -- --enable-reindexing"
+
+# runs server-side version of http server
+[tasks.server-deployed]
+run = "cargo run --bin http-server-deployed"
+
+# runs the http server in debug mode with auto-reload on file changes
+# serves at http://localhost:27495
+# only watches crates/* for changes
+# useful for pairing with the frontend
+[tasks.server-watch]
+run = "cargo watch -w crates -x 'run --bin dev-server'"
+
+# Same thing as server-watch, but with reindexing enabled
+[tasks.server-watch-reindexing]
+run = "cargo watch -w crates -x 'run --bin dev-server -- --enable-reindexing'"
+
+# generates the typescript bindings from rust to
+# packages/gkg/src/**/*
+[tasks.bindings-gen]
+run = "cargo test export_bindings_"
+
+# runs the tests with regular cargo test
+[tasks.cargo-test]
+run = "cargo test"
+
+# runs the tests with nextest
+[tasks.nextest]
+run = "cargo nextest run"
+
+# Validation tasks (for CI)
+[tasks.rust-fmt]
+run = "cargo fmt --check"
+
+[tasks.rust-clippy]
+run = "cargo clippy --all-targets --all-features --features no-frontend -- -D warnings"
+
+[tasks.newlines-check]
+run = "gitlab-xtasks lint verify-newlines --file-extensions rs,md,yml,yaml,toml,astro,js,ts,json,mdx,vue,rb,css,mjs --directory ."
+
+[tasks.docs-lint]
+run = "npm run lint --workspace=docs"
+
+[tasks.rust-test]
+run = "cargo test export_bindings_ && cargo nextest run --profile ci 2>/dev/null || cargo test"
+
+# Auto-fix tasks (for hooks and local development)
+[tasks."rust-fmt:fix"]
+run = "cargo fmt"
+
+[tasks."rust-clippy:fix"]
+run = "cargo clippy --all-targets --all-features --features no-frontend --fix --allow-dirty"
+
+[tasks."newlines-check:fix"]
+run = "gitlab-xtasks lint verify-newlines --file-extensions rs,md,yml,yaml,toml,astro,js,ts,json,mdx,vue,rb,css,mjs --directory . --fix"
+
+[tasks."docs-lint:fix"]
+run = "npm run lint --workspace=docs -- --write"
+
+[tasks."frontend-lint:fix"]
+run = "npm run lint --workspace=@gitlab-org/gkg-frontend"
+
+# Legacy tasks (keeping for backward compatibility)
+[tasks.lint]
+run = "cargo clippy --all-targets --all-features -- -D warnings"
+
+# formats code and applies clippy fixes
+[tasks.fix-all]
+run = "cargo fmt && cargo clippy --fix --allow-dirty"
+
+# compiles via tsc and builds the frontend in production mode (vite build)
+[tasks.frontend-build]
+run = "npm run build --workspace=@gitlab-org/gkg-frontend"
+
+# runs the frontend in development mode (vite dev
+[tasks.frontend-dev]
+run = "npm run dev --workspace=@gitlab-org/gkg-frontend"
+
+# runs prettier to format the frontend code
+[tasks.frontend-format]
+run = "npm run format --workspace=@gitlab-org/gkg-frontend"
+
+# runs and fixes possible eslint errors
+[tasks.frontend-lint]
+run = "npm run lint --workspace=@gitlab-org/gkg-frontend"
+
+# runs docs development server
+[tasks.docs-dev]
+run = "npm run dev --workspace=docs"
+
+# formats docs to fix lints
+[tasks.docs-fix-all]
+run = "npm run lint --workspace=docs -- --write"
+
+# runs gitlab-xtasks to check for newlines
+[tasks.newlines-fix]
+run = "gitlab-xtasks lint verify-newlines --file-extensions rs,md,yml,yaml,toml,astro,js,ts,json,mdx,vue,rb,css,mjs --directory . --fix"
+
+# runs basic evaluation script
+[tasks.gkg-evals]
+run = "./packages/gkg-evals/run.sh"
+
+# memory and storage benchmarks
+[tasks.measure-kuzu-db-size]
+run = "./scripts/devtools/measure_kuzu_db_size.sh"
+
+[tasks.gtime]
+run = "./scripts/devtools/gtime.sh"
+
+[tasks.average-rss]
+run = "./scripts/devtools/average_rss.sh"
+
+# Observability tasks
+[tasks."observability:up"]
+description = "Start the observability stack (Prometheus, Grafana, Mimir)"
+run = "cd observability && docker-compose up -d"
+
+[tasks."observability:down"]
+description = "Stop the observability stack"
+run = "cd observability && docker-compose down"
+
+[tasks."observability:restart"]
+description = "Restart the observability stack"
+run = "cd observability && docker-compose restart"
+
+[tasks."observability:logs"]
+description = "View logs from the observability stack"
+run = "cd observability && docker-compose logs -f"
+
+[tasks."observability:clean"]
+description = "Stop the observability stack and remove all data volumes"
+run = "cd observability && docker-compose down -v"

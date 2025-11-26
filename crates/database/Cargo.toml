@@ -1,0 +1,33 @@
+[package]
+name = "database"
+version = "0.23.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+kuzu = { workspace = true }
+neo4rs = { workspace = true }
+arrow = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+strum = { workspace = true }
+dunce = { workspace = true }
+toml = { workspace = true }
+monitoring = { path = "../monitoring" }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Kuzu requires cxx-build to be exact version 1.0.138
+[build-dependencies]
+cxx-build = "=1.0.138"
+
+[features]
+test-utils = []

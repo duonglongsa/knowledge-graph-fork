@@ -1,0 +1,54 @@
+[package]
+name = "indexer"
+version = "0.23.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+test-utils = []
+
+[dependencies]
+parser-core = { workspace = true }
+gitalisk-core = { workspace = true }
+workspace-manager = { path = "../workspace-manager" }
+monitoring = { path = "../monitoring" }
+anyhow = { workspace = true }
+log = { workspace = true }
+num_cpus = { workspace = true }
+serde = { workspace = true }
+parquet = { workspace = true }
+arrow = { workspace = true }
+kuzu = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tokio-rayon = { workspace = true }
+futures = { workspace = true }
+event-bus = { path = "../event-bus" }
+chrono = { workspace = true }
+database = { path = "../database" }
+tempfile = { workspace = true }
+ignore = { workspace = true }
+serde_json = { workspace = true }
+rayon = { workspace = true }
+rustc-hash = { workspace = true }
+smallvec = { workspace = true }
+internment = { workspace = true, features = ["arc"] }
+
+[dev-dependencies]
+miette = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+walkdir = { workspace = true }
+watchexec = { workspace = true }
+watchexec-events = { workspace = true }
+watchexec-filterer-ignore = { workspace = true }
+watchexec-signals = { workspace = true }
+criterion = { workspace = true }
+tracing-test = { workspace = true }
+

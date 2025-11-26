@@ -1,0 +1,119 @@
+[workspace]
+members = [
+  "crates/indexer",
+  "crates/gkg",
+  "crates/xtask",
+  "crates/workspace-manager",
+  "crates/http-server-desktop",
+  "crates/http-server-deployed",
+  "crates/mcp",
+  "crates/monitoring",
+  "crates/database",
+  "crates/event-bus",
+  "crates/testing",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.23.0"
+license = "MIT"
+authors = ["GitLab Inc."]
+description = "A framework to create a structured, queryable graph database from code repositories to power AI features and enhance developer productivity."
+repository = "https://gitlab.com/gitlab-org/rust/knowledge-graph"
+
+[workspace.lints.rust]
+unused_imports = "deny"
+
+[workspace.dependencies]
+# use `cargo run -p xtask -- set-mode dev` to use local versions of the dependencies
+# defaults to ../crates/parser-core and ../crates/gitalisk-core
+parser-core = { git = "https://github.com/duonglongsa/gitlab-code-parser-fork.git", branch = "main" }
+gitalisk-core = { git = "https://gitlab.com/gitlab-org/rust/gitalisk.git", tag = "v0.7.0" }
+
+anyhow = "1.0.99"
+clap = { version = "4.5.45", features = ["derive"] }
+toml = "0.9.5"
+ignore = "0.4.23"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.142"
+log = "0.4.27"
+num_cpus = "1.17.0"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tempfile = "3.20.0"
+parquet = "56.0.0"
+arrow = "56.0.0"
+kuzu = "=0.11.2"
+neo4rs = "0.7.1"
+thiserror = "2.0.14"
+dirs = "6.0.0"
+chrono = { version = "0.4.41", features = ["serde"] }
+jsonwebtoken = "9.3.0"
+sha2 = "0.10.9"
+hex = "0.4.3"
+uuid = { version = "1.18.0", features = ["v4", "serde"] }
+tokio = { version = "1.47.1", features = ["full"] }
+ctrlc = "3.4.7"
+dunce = "1.0.4"
+single-instance = "0.3.3"
+home = "0.5.11"
+axum = "0.8.4"
+axum-embed = "0.1.0"
+http = "1.3.1"
+once_cell = "1.21.3"
+rust-embed = "8.7.2"
+tower = "0.5.2"
+tower-http = { version = "0.6.6", features = ["cors"] }
+futures = "0.3.31"
+futures-util = "0.3.31"
+tokio-stream = "0.1.17"
+ts-rs = "11.0.1"
+tracing-appender = "0.2.3"
+file-rotate = "0.8.0"
+rmcp = { version = "0.8.1", features = ["server", "transport-streamable-http-server", "transport-worker", "transport-sse-server"] }
+dashmap = "6.1.0"
+tokio-util = "0.7.16"
+miette = "7.6.0"
+walkdir = "2.5.0"
+watchexec = "8.0.1"
+watchexec-events = "6.0.0"
+watchexec-filterer-ignore = "7.0.0"
+watchexec-signals = "5.0.0"
+criterion = "0.7.0"
+ignore-files = "3.0.4"
+strum = { version = "0.27.2", features = ["derive"] }
+libc = "0.2.175"
+nix = { version = "0.30.1", default-features = false, features = ["signal"] }
+serial_test = "3.2.0"
+mimalloc = "0.1.47"  
+rayon = "1.11.0"  
+rustc-hash = "2.1.1"
+smallvec = "1.15.1"
+tokio-rayon = "2.1.0"
+quick-xml = "0.38.3"
+regex = "1.11.1"
+async-trait = "0.1.83"
+prometheus = "0.14.0"
+lazy_static = "1.5.0"
+internment = "0.8.6"
+opentelemetry = "0.31.0"
+opentelemetry-otlp = { version = "0.31.0", default-features = false, features = ["grpc-tonic", "http-proto", "reqwest-blocking-client", "trace", "metrics"] }
+opentelemetry_sdk = "0.31.0"
+serde_json5 = "0.2.1"
+
+
+# Test dependencies
+axum-test = "18.1.0"
+tokio-test = "0.4.4"
+reqwest = "0.12.23"
+urlencoding = "2.1.3"
+test-log = "0.2.18"
+zip = "5.1.1"
+tracing-test = "0.2.5"
+
+[profile.release]
+lto = "thin"
+panic = "abort"
+opt-level = 3
+strip = "symbols"
+codegen-units = 1

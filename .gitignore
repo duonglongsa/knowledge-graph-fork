@@ -1,0 +1,64 @@
+# Rust
+.cargo/
+target
+report.xml
+
+# Output
+output
+database.kz
+kuzu_db
+
+# Kuzu (old)
+db.kuzu
+*.db
+
+
+# TypeScript test files
+test-bindings/
+
+# Node.js
+node_modules
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# MacOS
+.DS_Store
+
+# Compiled libraries
+lib/
+
+# IDEs
+.idea/
+
+
+# Python
+__pycache__/
+.venv/
+.ruff_cache/
+
+# Environment variables
+.env
+
+# Evals
+packages/gkg-evals/data
+packages/gkg-evals/run_artifacts
+
+# Synthetic Data
+gitlab_estimation_*
+
+# Summarization
+git_diff_full.txt
+logs.txt
+nextest.log
+*.log
+
+# Gemini
+/.gemini
+/.gemini-clipboard
+
+# Ignore pipeline failure logs
+pipline fail/
+
+# Profiling - Samply
+profile.json.gz

@@ -1,0 +1,37 @@
+[package]
+name = "mcp"
+version = "0.23.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_json5 = { workspace = true }
+anyhow = { workspace = true }
+rmcp = { workspace = true, features = ["server", "transport-streamable-http-server", "transport-worker", "transport-sse-server"] }
+database = { path = "../database" }
+workspace-manager = { path = "../workspace-manager" }
+axum = { workspace = true }
+tokio-util = { workspace = true }
+indexer = { path = "../indexer" }
+event-bus = { path = "../event-bus" }
+num_cpus = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+quick-xml = { workspace = true }
+regex = { workspace = true }
+ignore = { workspace = true }
+async-trait = { workspace = true, optional = false }
+
+[dev-dependencies]
+indexer = { path = "../indexer", features = ["test-utils"] }
+tempfile = { workspace = true }
+database = { path = "../database", features = ["test-utils"] }
+testing = { path = "../testing" }
+tracing = { workspace = true }
+tracing-test = { workspace = true }
+tokio-test = { workspace = true }

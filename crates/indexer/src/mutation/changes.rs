@@ -1,0 +1,295 @@
+use database::kuzu::service::NodeDatabaseService;
+use database::kuzu::types::{
+    DefinitionNodeFromKuzu, DirectoryNodeFromKuzu, FileNodeFromKuzu, FromKuzuNode,
+    ImportedSymbolNodeFromKuzu, KuzuNodeType,
+};
+use database::schema::manager::SchemaManager;
+use kuzu::Database;
+
+use crate::analysis::types::GraphData;
+use crate::mutation::utils::NodeIdGenerator;
+use crate::parsing::changes::{FileChanges, FileChangesPathType};
+use crate::writer::{WriterResult, WriterService};
+use anyhow::Error;
+use tracing::error;
+
+#[derive(Debug, Clone)]
+pub struct KuzuChangesIds {
+    pub deleted_definition_ids: Vec<u32>,
+    pub deleted_imported_symbol_ids: Vec<u32>,
+    pub deleted_file_ids: Vec<u32>,
+    pub deleted_directory_ids: Vec<u32>,
+    pub changed_file_paths: Vec<String>,
+    pub changed_dir_paths: Vec<String>,
+}
+
+pub struct KuzuChanges<'a> {
+    pub database: &'a Database,
+    pub node_database_service: NodeDatabaseService<'a>,
+    pub file_changes: FileChanges,
+    pub graph_data: GraphData,
+    pub repo_path: String,
+    pub output_path: String,
+}
+
+impl<'a> KuzuChanges<'a> {
+    pub fn new(
+        database: &'a Database,
+        file_changes: FileChanges,
+        graph_data: GraphData,
+        repo_path: &str,
+        output_path: &str,
+    ) -> Self {
+        Self {
+            database,
+            node_database_service: NodeDatabaseService::new(database),
+            file_changes,
+            graph_data,
+            repo_path: repo_path.to_string(),
+            output_path: output_path.to_string(),
+        }
+    }
+
+    pub fn sync_changes(&mut self) -> Result<WriterResult, Error> {
+        // First, get all the changes that need to be applied
+        let changes = self.get_changes();
+
+        // Get the new node ID heads
+        let (max_definition_id, max_imported_symbol_id, max_file_id, max_dir_id) =
+            self.new_node_id_heads();
+        let mut node_id_generator = NodeIdGenerator::new();
+        node_id_generator.next_definition_id = max_definition_id as u32 + 1;
+        node_id_generator.next_imported_symbol_id = max_imported_symbol_id as u32 + 1;
+        node_id_generator.next_file_id = max_file_id as u32 + 1;
+        node_id_generator.next_directory_id = max_dir_id as u32 + 1;
+
+        // Clear the ID mappings to ensure new IDs are assigned
+        node_id_generator.clear();
+
+        // Write new nodes to Parquet files with new IDs
+        let writer_service = WriterService::new(&self.output_path)
+            .map_err(|e| format!("Failed to create writer service: {e}"))
+            .unwrap();
+
+        // Simple validation to make sure the output directory is flushed
+        if !writer_service.flush_output_directory().unwrap() {
+            // To note: this is a holdover that will be removed in a future MR
+            error!("Output directory not flushed");
+            // return Err(anyhow::anyhow!("Output directory not flushed"));
+        }
+
+        let result = writer_service
+            .write_graph_data(&mut self.graph_data, &mut node_id_generator)
+            .map_err(|e| format!("Writing failed: {e}"))
+            .expect("Failed to write graph data");
+
+        // Import the new nodes from Parquet files
+        let schema_manager = SchemaManager::new(self.database);
+
+        // Create a transaction-enabled service for the modification operations
+        let mut transaction_service = NodeDatabaseService::new_with_transaction(self.database);
+        transaction_service
+            .transaction(|service| {
+                // Remove deleted definitions (and their relationships)
+                let _ = service.delete_by(
+                    KuzuNodeType::DefinitionNode,
+                    "id",
+                    &changes.deleted_definition_ids,
+                );
+
+                // Remove deleted imported symbols (and their relationships)
+                let _ = service.delete_by(
+                    KuzuNodeType::ImportedSymbolNode,
+                    "id",
+                    &changes.deleted_imported_symbol_ids,
+                );
+
+                // Remove deleted files (and their relationships)
+                let _ = service.delete_by(KuzuNodeType::FileNode, "id", &changes.deleted_file_ids);
+                // Remove deleted directories (and their relationships)
+                let _ = service.delete_by(
+                    KuzuNodeType::DirectoryNode,
+                    "id",
+                    &changes.deleted_directory_ids,
+                );
+
+                // Delete the nodes for changed files and directories from the database
+                let _ = service.delete_by(
+                    KuzuNodeType::DefinitionNode,
+                    "primary_file_path",
+                    &changes.changed_file_paths,
+                );
+                let _ = service.delete_by(
+                    KuzuNodeType::ImportedSymbolNode,
+                    "file_path",
+                    &changes.changed_file_paths,
+                );
+                let _ =
+                    service.delete_by(KuzuNodeType::FileNode, "path", &changes.changed_file_paths);
+                let _ = service.delete_by(
+                    KuzuNodeType::DirectoryNode,
+                    "path",
+                    &changes.changed_dir_paths,
+                );
+
+                // Reuse the same connection for the data import
+                schema_manager
+                    .import_graph_data_with_existing_connection(
+                        &self.output_path,
+                        service.transaction_conn.as_mut().unwrap(),
+                    )
+                    .expect("Failed to import graph data");
+
+                Ok(())
+            })
+            .expect("Failed to apply destructive changes");
+
+        Ok(result)
+    }
+
+    fn new_node_id_heads(&mut self) -> (u64, u64, u64, u64) {
+        let node_counts = self.node_database_service.get_node_counts().unwrap();
+
+        // Compute the max id of each node type
+        let max_definition_id = if node_counts.definition_count > 0 {
+            self.node_database_service
+                .agg_node_by::<DefinitionNodeFromKuzu>("max", "id")
+                .unwrap()
+        } else {
+            0
+        };
+
+        let max_imported_symbol_id = if node_counts.imported_symbol_count > 0 {
+            self.node_database_service
+                .agg_node_by::<ImportedSymbolNodeFromKuzu>("max", "id")
+                .unwrap()
+        } else {
+            0
+        };
+
+        let max_file_id = if node_counts.file_count > 0 {
+            self.node_database_service
+                .agg_node_by::<FileNodeFromKuzu>("max", "id")
+                .unwrap()
+        } else {
+            0
+        };
+
+        let max_dir_id = if node_counts.directory_count > 0 {
+            self.node_database_service
+                .agg_node_by::<DirectoryNodeFromKuzu>("max", "id")
+                .unwrap()
+        } else {
+            0
+        };
+
+        (
+            max_definition_id,
+            max_imported_symbol_id,
+            max_file_id,
+            max_dir_id,
+        )
+    }
+
+    fn find_nodes<R: FromKuzuNode>(
+        &mut self,
+        path_type: FileChangesPathType,
+        node_type: KuzuNodeType,
+    ) -> Vec<R> {
+        let changed_files = self.file_changes.get_rel_paths(path_type, &self.repo_path);
+        match node_type {
+            KuzuNodeType::DefinitionNode => self
+                .node_database_service
+                .get_by::<String, R>(node_type, "primary_file_path", &changed_files)
+                .unwrap(),
+
+            KuzuNodeType::FileNode => self
+                .node_database_service
+                .get_by::<String, R>(node_type, "path", &changed_files)
+                .unwrap(),
+
+            KuzuNodeType::DirectoryNode => self
+                .node_database_service
+                .get_by::<String, R>(node_type, "path", &changed_files)
+                .unwrap(),
+
+            KuzuNodeType::ImportedSymbolNode => self
+                .node_database_service
+                .get_by::<String, R>(node_type, "file_path", &changed_files)
+                .unwrap(),
+
+            KuzuNodeType::EndpointNode => self
+                .node_database_service
+                .get_by::<String, R>(node_type, "file_path", &changed_files)
+                .unwrap(),
+        }
+    }
+
+    fn get_changes(&mut self) -> KuzuChangesIds {
+        let changed_def_nodes = self.find_nodes::<DefinitionNodeFromKuzu>(
+            FileChangesPathType::ChangedFiles,
+            KuzuNodeType::DefinitionNode,
+        );
+
+        let deleted_definitions = changed_def_nodes
+            .iter()
+            .filter(|kuzu_def| {
+                !self.graph_data.definition_nodes.iter().any(|def| {
+                    def.fqn.to_string() == kuzu_def.fqn
+                        && *def.file_path.as_ref() == kuzu_def.primary_file_path
+                })
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        // Remove deleted definitions (and their relationships)
+        let deleted_def_ids = deleted_definitions
+            .iter()
+            .map(|def| def.id)
+            .collect::<Vec<_>>();
+
+        // Find deleted imported symbols
+        let deleted_symbols = self.find_nodes::<ImportedSymbolNodeFromKuzu>(
+            FileChangesPathType::ChangedFiles,
+            KuzuNodeType::ImportedSymbolNode,
+        );
+        let deleted_import_ids = deleted_symbols
+            .iter()
+            .map(|symbol| symbol.id)
+            .collect::<Vec<_>>();
+
+        // Find removed files (exist in kuzu but not in new)
+        let deleted_files = self.find_nodes::<FileNodeFromKuzu>(
+            FileChangesPathType::DeletedFiles,
+            KuzuNodeType::FileNode,
+        );
+
+        let deleted_file_ids = deleted_files.iter().map(|file| file.id).collect::<Vec<_>>();
+
+        // Find removed directories (exist in kuzu but not in new)
+        let deleted_dirs = self.find_nodes::<DirectoryNodeFromKuzu>(
+            FileChangesPathType::DeletedFiles,
+            KuzuNodeType::DirectoryNode,
+        );
+
+        let deleted_dir_ids = deleted_dirs.iter().map(|dir| dir.id).collect::<Vec<_>>();
+
+        let changed_files = self
+            .file_changes
+            .get_rel_paths(FileChangesPathType::ChangedFiles, &self.repo_path);
+
+        // Delete the nodes for deleted files from the database
+        let changed_dirs = self
+            .file_changes
+            .get_rel_paths(FileChangesPathType::ChangedDirs, &self.repo_path);
+
+        KuzuChangesIds {
+            deleted_definition_ids: deleted_def_ids,
+            deleted_imported_symbol_ids: deleted_import_ids,
+            deleted_file_ids,
+            deleted_directory_ids: deleted_dir_ids,
+            changed_file_paths: changed_files,
+            changed_dir_paths: changed_dirs,
+        }
+    }
+}

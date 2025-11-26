@@ -1,0 +1,401 @@
+use crate::AppState;
+use crate::contract::{EmptyRequest, EndpointConfigTypes};
+use crate::define_endpoint;
+use crate::endpoints::shared::StatusResponse;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Json};
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+#[derive(Deserialize, Serialize, TS, Default, Clone)]
+#[ts(export, export_to = "../../../packages/gkg/src/api.ts")]
+pub struct WorkspaceDeleteBodyRequest {
+    pub workspace_folder_path: String,
+}
+
+#[derive(Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "../../../packages/gkg/src/api.ts")]
+pub struct WorkspaceDeleteSuccessResponse {
+    pub workspace_folder_path: String,
+    pub removed: bool,
+}
+
+#[derive(Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "../../../packages/gkg/src/api.ts")]
+pub struct WorkspaceDeleteResponses {
+    #[serde(rename = "200")]
+    pub ok: WorkspaceDeleteSuccessResponse,
+    #[serde(rename = "400")]
+    pub bad_request: StatusResponse,
+    #[serde(rename = "404")]
+    pub not_found: StatusResponse,
+    #[serde(rename = "500")]
+    pub internal_server_error: StatusResponse,
+}
+
+pub struct WorkspaceDeleteEndpointConfig;
+
+impl EndpointConfigTypes for WorkspaceDeleteEndpointConfig {
+    type PathRequest = EmptyRequest;
+    type BodyRequest = WorkspaceDeleteBodyRequest;
+    type QueryRequest = EmptyRequest;
+    type Response = WorkspaceDeleteResponses;
+}
+
+define_endpoint! {
+    WorkspaceDeleteEndpoint,
+    WorkspaceDeleteEndpointDef,
+    Delete,
+    "/workspace/delete",
+    ts_path_type = "\"/api/workspace/delete\"",
+    config = WorkspaceDeleteEndpointConfig,
+    export_to = "../../../packages/gkg/src/api.ts"
+}
+
+impl WorkspaceDeleteEndpoint {
+    pub fn create_success_response(
+        workspace_folder_path: String,
+        removed: bool,
+    ) -> WorkspaceDeleteSuccessResponse {
+        WorkspaceDeleteSuccessResponse {
+            workspace_folder_path,
+            removed,
+        }
+    }
+
+    pub fn create_error_response(status: String) -> StatusResponse {
+        StatusResponse { status }
+    }
+}
+
+/// Handler for the workspace delete endpoint
+/// Removes a workspace folder and all its associated data from the system
+pub async fn delete_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<WorkspaceDeleteBodyRequest>,
+) -> impl IntoResponse {
+    // Validate workspace folder path
+    if payload.workspace_folder_path.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(WorkspaceDeleteEndpoint::create_error_response(
+                "empty_workspace_path".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Check if workspace exists before attempting deletion
+    let workspace_info = state
+        .workspace_manager
+        .get_workspace_folder_info(&payload.workspace_folder_path);
+
+    if workspace_info.is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(WorkspaceDeleteEndpoint::create_error_response(
+                "workspace_not_found".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Get all projects in the workspace
+    let all_projects = state.workspace_manager.list_all_projects();
+    let projects = all_projects
+        .iter()
+        .filter(|project| project.workspace_folder_path == payload.workspace_folder_path)
+        .collect::<Vec<_>>();
+
+    // Drop all databases for the projects in the workspace
+    for project in &projects {
+        state
+            .database
+            .drop_database(project.database_path.to_str().unwrap());
+    }
+
+    // Attempt to remove the workspace
+    match state
+        .workspace_manager
+        .remove_workspace_folder(&payload.workspace_folder_path)
+    {
+        Ok(removed) => (
+            StatusCode::OK,
+            Json(WorkspaceDeleteEndpoint::create_success_response(
+                payload.workspace_folder_path,
+                removed,
+            )),
+        )
+            .into_response(),
+        Err(e) => {
+            tracing::error!("Failed to remove workspace folder: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(WorkspaceDeleteEndpoint::create_error_response(format!(
+                    "Failed to remove workspace: {e}"
+                ))),
+            )
+                .into_response()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{Router, routing::delete};
+    use axum_test::TestServer;
+    use database::kuzu::database::KuzuDatabase;
+    use event_bus::EventBus;
+    use std::fs;
+    use std::sync::Arc;
+    use tempfile::TempDir;
+    use workspace_manager::WorkspaceManager;
+
+    fn create_test_workspace() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create repo with proper git structure
+        let repo_path = temp_dir.path().join("repo1");
+        fs::create_dir_all(repo_path.join(".git/refs/heads")).unwrap();
+        fs::create_dir_all(repo_path.join(".git/objects/info")).unwrap();
+        fs::create_dir_all(repo_path.join(".git/objects/pack")).unwrap();
+        fs::write(repo_path.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        fs::write(
+            repo_path.join(".git/config"),
+            "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n\tlogallrefupdates = true\n"
+        ).unwrap();
+        fs::write(
+            repo_path.join(".git/description"),
+            "Unnamed repository; edit this file 'description' to name the repository.\n",
+        )
+        .unwrap();
+        fs::write(repo_path.join("test.rb"), "puts 'hello'").unwrap();
+
+        temp_dir
+    }
+
+    async fn create_test_app() -> (TestServer, TempDir) {
+        let temp_data_dir = TempDir::new().unwrap();
+        let workspace_manager = Arc::new(
+            WorkspaceManager::new_with_directory(temp_data_dir.path().to_path_buf()).unwrap(),
+        );
+        let event_bus = Arc::new(EventBus::new());
+        let database = Arc::new(KuzuDatabase::new());
+        let job_dispatcher = Arc::new(crate::queue::dispatch::JobDispatcher::new(
+            workspace_manager.clone(),
+            event_bus.clone(),
+            database.clone(),
+        ));
+        let state = crate::AppState {
+            workspace_manager,
+            event_bus,
+            job_dispatcher,
+            database,
+        };
+        let app = Router::new()
+            .route("/workspace/delete", delete(delete_handler))
+            .with_state(state);
+        (TestServer::new(app).unwrap(), temp_data_dir)
+    }
+
+    async fn create_test_app_with_workspace() -> (
+        TestServer,
+        TempDir,
+        String,
+        Arc<WorkspaceManager>,
+        Arc<KuzuDatabase>,
+    ) {
+        let temp_workspace = create_test_workspace();
+        let temp_data_dir = TempDir::new().unwrap();
+
+        // Create workspace manager that will be shared between server and test
+        let workspace_manager = Arc::new(
+            WorkspaceManager::new_with_directory(temp_data_dir.path().to_path_buf()).unwrap(),
+        );
+
+        // Register workspace before creating the server
+        let workspace_info = workspace_manager
+            .register_workspace_folder(temp_workspace.path())
+            .unwrap();
+
+        let event_bus = Arc::new(EventBus::new());
+        let database = Arc::new(KuzuDatabase::new());
+        let job_dispatcher = Arc::new(crate::queue::dispatch::JobDispatcher::new(
+            workspace_manager.clone(),
+            event_bus.clone(),
+            database.clone(),
+        ));
+        let state = crate::AppState {
+            workspace_manager: workspace_manager.clone(),
+            event_bus,
+            job_dispatcher,
+            database: database.clone(),
+        };
+        let app = Router::new()
+            .route("/workspace/delete", delete(delete_handler))
+            .with_state(state);
+        let server = TestServer::new(app).unwrap();
+
+        (
+            server,
+            temp_data_dir,
+            workspace_info.workspace_folder_path,
+            workspace_manager.clone(),
+            database.clone(),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_success() {
+        let (server, _temp_data_dir, workspace_path, _workspace_manager, _database) =
+            create_test_app_with_workspace().await;
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: workspace_path.clone(),
+        };
+
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+
+        response.assert_status_ok();
+        let body: WorkspaceDeleteSuccessResponse = response.json();
+        assert_eq!(body.workspace_folder_path, workspace_path);
+        assert!(body.removed);
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_not_found() {
+        let (server, _temp_dir) = create_test_app().await;
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: "/nonexistent/workspace".to_string(),
+        };
+
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+
+        response.assert_status(StatusCode::NOT_FOUND);
+        let body: StatusResponse = response.json();
+        assert_eq!(body.status, "workspace_not_found");
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_empty_path() {
+        let (server, _temp_dir) = create_test_app().await;
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: "".to_string(),
+        };
+
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+
+        response.assert_status(StatusCode::BAD_REQUEST);
+        let body: StatusResponse = response.json();
+        assert_eq!(body.status, "empty_workspace_path");
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_whitespace_path() {
+        let (server, _temp_dir) = create_test_app().await;
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: "   ".to_string(),
+        };
+
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+
+        response.assert_status(StatusCode::BAD_REQUEST);
+        let body: StatusResponse = response.json();
+        assert_eq!(body.status, "empty_workspace_path");
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_malformed_request() {
+        let (server, _temp_dir) = create_test_app().await;
+
+        let response = server
+            .delete("/workspace/delete")
+            .text("invalid json")
+            .await;
+
+        response.assert_status(StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_performance() {
+        let (server, _temp_data_dir, workspace_path, _workspace_manager, _database) =
+            create_test_app_with_workspace().await;
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: workspace_path,
+        };
+
+        let start_time = std::time::Instant::now();
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+        let duration = start_time.elapsed();
+
+        response.assert_status_ok();
+        assert!(
+            duration.as_millis() < 1000,
+            "Deletion took too long: {duration:?}"
+        );
+
+        let body: WorkspaceDeleteSuccessResponse = response.json();
+        assert!(!body.workspace_folder_path.is_empty());
+        assert!(body.removed);
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_twice() {
+        let (server, _temp_data_dir, workspace_path, _workspace_manager, _database) =
+            create_test_app_with_workspace().await;
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: workspace_path.clone(),
+        };
+
+        // First deletion should succeed
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+        response.assert_status_ok();
+
+        // Second deletion should return not found
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+        response.assert_status(StatusCode::NOT_FOUND);
+        let body: StatusResponse = response.json();
+        assert_eq!(body.status, "workspace_not_found");
+    }
+
+    #[tokio::test]
+    async fn test_workspace_delete_database_deletion() {
+        let (server, _temp_data_dir, workspace_path, workspace_manager, database) =
+            create_test_app_with_workspace().await;
+
+        // Use the first project's database path to create a database
+        let projects = workspace_manager.list_projects_in_workspace(&workspace_path);
+        assert!(!projects.is_empty(), "Should have at least one project");
+        let test_db_path = projects[0].database_path.to_string_lossy().to_string();
+        let _db = database.get_or_create_database(&test_db_path, None);
+
+        // Verify database is in the active connections
+        let active_dbs_before = database.get_database_keys();
+        assert!(
+            active_dbs_before.contains(&test_db_path),
+            "Database should be active before deletion"
+        );
+
+        let request_body = WorkspaceDeleteBodyRequest {
+            workspace_folder_path: workspace_path.clone(),
+        };
+
+        // Delete the workspace
+        let response = server.delete("/workspace/delete").json(&request_body).await;
+        response.assert_status_ok();
+
+        // Verify database connection has been dropped
+        let active_dbs_after = database.get_database_keys();
+        assert!(
+            !active_dbs_after.contains(&test_db_path),
+            "Database connection should be dropped after workspace deletion"
+        );
+    }
+}

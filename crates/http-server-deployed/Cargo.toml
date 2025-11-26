@@ -1,0 +1,43 @@
+[package]
+name = "http-server-deployed"
+version = "0.23.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[features]
+test-helpers = []
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+http = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+jsonwebtoken = { workspace = true }
+tower-http = { workspace = true }
+prometheus = { workspace = true }
+workspace-manager = { path = "../workspace-manager" }
+monitoring = { path = "../monitoring" }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+once_cell = { workspace = true }
+
+[[bin]]
+name = "http-server-deployed"
+path = "src/main.rs"
+
+[dev-dependencies]
+assert_cmd = "2.0.17"
+nix.workspace = true
+serial_test.workspace = true
+tempfile.workspace = true
+axum-test.workspace = true
+http-server-deployed = { path = ".", features = ["test-helpers"] }

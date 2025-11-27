@@ -1,0 +1,24 @@
+[package]
+name = "single-instance"
+version = "0.3.3"
+authors = ["wlbf <lbf1353@live.com>"]
+license = "MIT"
+description = "A rust library for single instance application."
+repository = "https://github.com/WLBF/single-instance"
+readme = "README.md"
+keywords = ["single", "singleton"]
+include = [
+    "src/*.rs",
+    "Cargo.toml",
+]
+
+[dependencies]
+thiserror = "1.0"
+widestring = "0.4.3"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["synchapi", "winnt", "errhandlingapi", "winerror", "handleapi"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+nix = "0.23.0"

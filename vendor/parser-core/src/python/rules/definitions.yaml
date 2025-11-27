@@ -1,0 +1,176 @@
+id: python-definitions
+language: python
+
+rule:
+  any:
+    # Non-decorated class definition
+    - all:
+        - kind: class_definition
+        - not:
+            inside:
+              kind: decorated_definition
+        - has:
+            field: name
+            kind: identifier
+            pattern: $CLASS_DEF_NAME
+
+    # Decorated class definition
+    - all:
+      - kind: decorated_definition
+        has:
+          field: definition
+          kind: class_definition
+          has:
+            field: name
+            kind: identifier
+            pattern: $DECORATED_CLASS_DEF_NAME
+
+    # Non-decorated, non-async method
+    - all:
+        - kind: function_definition
+        - inside:
+            kind: class_definition
+            stopBy: 
+              kind: function_definition
+        - has:
+            field: name
+            kind: identifier
+            pattern: $METHOD_DEF_NAME
+        - not:
+            inside:
+              kind: decorated_definition
+        - not:
+            inside:
+              kind: function_definition
+        - not:
+            pattern: "async def $$$"
+
+    # Decorated non-async method
+    - all:
+        - kind: decorated_definition
+        - inside:
+            kind: class_definition
+            stopBy: 
+              kind: function_definition
+        - has:
+            field: definition
+            all:
+              - kind: function_definition
+              - not:
+                  pattern: "async def $$$"
+              - has:
+                  field: name
+                  kind: identifier
+                  pattern: $DECORATED_METHOD_DEF_NAME
+
+    # Non-decorated async method
+    - all:
+        - kind: function_definition
+        - inside:
+            kind: class_definition
+            stopBy: 
+              kind: function_definition
+        - not:
+            inside:
+              kind: decorated_definition
+        - pattern: "async def $$$"
+        - has:
+            field: name
+            kind: identifier
+            pattern: $ASYNC_METHOD_DEF_NAME
+
+    # Decorated async method
+    - all:
+        - kind: decorated_definition
+        - inside:
+            kind: class_definition
+            stopBy: 
+              kind: function_definition
+        - has:
+            field: definition
+            all:
+              - kind: function_definition
+              - pattern: "async def $$$"
+              - has:
+                  field: name
+                  kind: identifier
+                  pattern: $DECORATED_ASYNC_METHOD_DEF_NAME
+
+    # Non-decorated, non-async function
+    - all:
+        - kind: function_definition
+        - not:
+            inside:
+              kind: class_definition
+        - not:
+            inside:
+              kind: decorated_definition
+        - not:
+            pattern: "async def $$$"
+        - has:
+            field: name
+            kind: identifier
+            pattern: $FUNCTION_DEF_NAME
+
+    # Decorated non-async function
+    - all:
+        - kind: decorated_definition
+        - not:
+            inside:
+              kind: class_definition
+        - has:
+            field: definition
+            all:
+              - kind: function_definition
+              - not:
+                  pattern: "async def $$$"
+              - has:
+                  field: name
+                  kind: identifier
+                  pattern: $DECORATED_FUNCTION_DEF_NAME
+
+    # Non-decorated async function
+    - all:
+        - kind: function_definition
+        - not:
+            inside:
+              kind: class_definition
+        - not:
+            inside:
+              kind: decorated_definition
+        - pattern: "async def $$$"
+        - has:
+            field: name
+            kind: identifier
+            pattern: $ASYNC_FUNCTION_DEF_NAME
+
+    # Decorated async function
+    - all:
+        - kind: decorated_definition
+        - not:
+            inside:
+              kind: class_definition
+        - has:
+            field: definition
+            all:
+              - kind: function_definition
+              - pattern: "async def $$$"
+              - has:
+                  field: name
+                  kind: identifier
+                  pattern: $DECORATED_ASYNC_FUNCTION_DEF_NAME
+
+    # Named lambdas (assigned to variables)
+    - all:
+        - kind: assignment
+        - has:
+            field: left
+            any:
+              - kind: identifier
+                pattern: $LAMBDA_VARIABLE_NAME
+              - kind: attribute
+                pattern: $LAMBDA_ATTRIBUTE_NAME
+        - has:
+            field: right
+            kind: lambda
+        - pattern: $LAMBDA_DEF

@@ -1,0 +1,148 @@
+id: python-imports
+language: python
+
+rule:
+  any:
+    # Regular import (import module)
+    - all:
+        - kind: dotted_name
+        - pattern: $IMPORT_PATH
+        - inside:
+            kind: import_statement
+            pattern: $IMPORT_STATEMENT
+
+    # Aliased import (import module as alias)
+    - all:
+        - kind: aliased_import
+        - has:
+            field: name
+            kind: dotted_name
+            pattern: $ALIASED_IMPORT_PATH
+        - has:
+            field: alias
+            kind: identifier
+            pattern: $ALIASED_IMPORT_ALIAS
+        - inside:
+            kind: import_statement
+            pattern: $IMPORT_STATEMENT
+
+    # From import (from module import symbol)
+    - all:
+        - kind: identifier
+        - pattern: $FROM_IMPORT_SYMBOL
+        - inside:
+            all:
+              - kind: dotted_name
+              - inside:
+                  kind: import_from_statement
+                  pattern: $IMPORT_STATEMENT
+                  has:
+                    kind: dotted_name
+                    field: module_name
+                    pattern: $FROM_IMPORT_PATH
+              - not:
+                  inside:
+                    kind: import_from_statement
+                    field: module_name
+
+    # Aliased from import (from module import symbol as alias)
+    - all:
+        - kind: aliased_import
+        - has:
+            field: name
+            kind: dotted_name
+            pattern: $ALIASED_FROM_IMPORT_SYMBOL
+        - has:
+            field: alias
+            kind: identifier
+            pattern: $ALIASED_FROM_IMPORT_ALIAS
+        - inside:
+            kind: import_from_statement
+            pattern: $IMPORT_STATEMENT
+            has:
+                kind: dotted_name
+                field: module_name
+                pattern: $ALIASED_FROM_IMPORT_PATH
+
+    # Wildcard import (from module import *)
+    - all:
+        - kind: import_from_statement
+        - pattern: $IMPORT_STATEMENT
+        - has:
+            field: module_name
+            kind: dotted_name
+            pattern: $WILDCARD_IMPORT_PATH
+        - has:
+            kind: wildcard_import
+
+    # Relative import (from .. import symbol)
+    - all:
+        - kind: identifier
+        - pattern: $RELATIVE_IMPORT_SYMBOL
+        - inside:
+            all:
+              - kind: dotted_name
+              - inside:
+                  kind: import_from_statement
+                  pattern: $IMPORT_STATEMENT
+                  has:
+                    kind: relative_import
+                    field: module_name
+                    pattern: $RELATIVE_IMPORT_PATH
+              - not:
+                  inside:
+                    kind: import_from_statement
+                    field: module_name
+
+    # Aliased relative import (from .. import symbol as alias)
+    - all:
+        - kind: aliased_import
+        - has:
+            field: name
+            kind: dotted_name
+            pattern: $ALIASED_RELATIVE_IMPORT_SYMBOL
+        - has:
+            field: alias
+            kind: identifier
+            pattern: $ALIASED_RELATIVE_IMPORT_ALIAS
+        - inside:
+            kind: import_from_statement
+            pattern: $IMPORT_STATEMENT
+            has:
+                kind: relative_import
+                field: module_name
+                pattern: $ALIASED_RELATIVE_IMPORT_PATH
+
+    # Relative wildcard import (from .. import *)
+    - all:
+        - kind: import_from_statement
+        - pattern: $IMPORT_STATEMENT
+        - has:
+            field: module_name
+            kind: relative_import
+            pattern: $RELATIVE_WILDCARD_IMPORT_PATH
+        - has:
+            kind: wildcard_import
+
+    # Future imports (from __future__ import symbol)
+    - all:
+        - kind: dotted_name
+        - pattern: $FUTURE_IMPORT_SYMBOL
+        - inside:
+            kind: future_import_statement
+            pattern: $IMPORT_STATEMENT
+    
+    # Aliased future imports (from __future__ import symbol as alias)
+    - all:
+        - kind: aliased_import
+        - has:
+            field: name
+            kind: dotted_name
+            pattern: $ALIASED_FUTURE_IMPORT_SYMBOL
+        - has:
+            field: alias
+            kind: identifier
+            pattern: $ALIASED_FUTURE_IMPORT_ALIAS
+        - inside:
+            kind: future_import_statement
+            pattern: $IMPORT_STATEMENT

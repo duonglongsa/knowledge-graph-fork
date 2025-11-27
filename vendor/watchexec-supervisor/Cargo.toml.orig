@@ -1,0 +1,59 @@
+[package]
+name = "watchexec-supervisor"
+version = "5.0.1"
+
+authors = ["Félix Saparelli <felix@passcod.name>"]
+license = "Apache-2.0 OR MIT"
+description = "Watchexec's process supervisor component"
+keywords = ["process", "command", "supervisor", "watchexec"]
+
+documentation = "https://docs.rs/watchexec-supervisor"
+repository = "https://github.com/watchexec/watchexec"
+readme = "README.md"
+
+rust-version = "1.64.0"
+edition = "2021"
+
+[dependencies]
+futures = "0.3.29"
+tracing = "0.1.40"
+
+[dependencies.process-wrap]
+version = "8.2.1"
+features = ["reset-sigmask", "tokio1"]
+
+[dependencies.tokio]
+version = "1.38.0"
+default-features = false
+features = ["macros", "process", "rt", "sync", "time"]
+
+[dependencies.watchexec-events]
+version = "6.0.0"
+default-features = false
+path = "../events"
+
+[dependencies.watchexec-signals]
+version = "5.0.0"
+default-features = false
+path = "../signals"
+
+[dev-dependencies]
+boxcar = "0.2.9"
+
+[target.'cfg(unix)'.dev-dependencies.nix]
+version = "0.30.1"
+features = ["signal"]
+
+[lints.clippy]
+nursery = "warn"
+pedantic = "warn"
+module_name_repetitions = "allow"
+similar_names = "allow"
+cognitive_complexity = "allow"
+too_many_lines = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+default_trait_access = "allow"
+enum_glob_use = "allow"
+option_if_let_else = "allow"
+blocks_in_conditions = "allow"

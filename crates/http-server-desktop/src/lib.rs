@@ -80,17 +80,8 @@ pub async fn run(
     mcp_configuration: Arc<McpConfiguration>,
     on_ready: Option<Box<dyn FnOnce(u16) + Send>>,
 ) -> Result<()> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let cors_layer = CorsLayer::new().allow_origin(tower_http::cors::AllowOrigin::predicate(
-        |origin: &HeaderValue, _| {
-            if let Ok(origin_str) = origin.to_str()
-                && let Ok(uri) = origin_str.parse::<http::Uri>()
-            {
-                return uri.host() == Some("localhost");
-            }
-            false
-        },
-    ));
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let cors_layer = CorsLayer::permissive();
 
     let job_dispatcher = Arc::new(JobDispatcher::new(
         workspace_manager.clone(),

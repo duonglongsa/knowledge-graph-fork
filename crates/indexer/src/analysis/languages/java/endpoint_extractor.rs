@@ -152,7 +152,7 @@ impl EndpointExtractor {
         all_annotations: &[JavaAnnotation],
     ) -> Option<EndpointNode> {
         // Check if this is an endpoint mapping annotation
-        let http_method = Self::get_http_method(&annotation.name)?;
+        let http_method = Self::get_http_method(annotation)?;
 
         // Extract path from annotation
         let path = Self::extract_path_from_annotation(annotation)?;
@@ -209,7 +209,7 @@ impl EndpointExtractor {
         context: Option<&ExtractionContext>,
     ) -> Option<EndpointNode> {
         // Check if this is an endpoint mapping annotation
-        let http_method = Self::get_http_method(&annotation.name)?;
+        let http_method = Self::get_http_method(annotation)?;
 
         // Extract path from annotation with constant resolution
         let path = Self::extract_path_from_annotation_with_context(annotation, context)?;
@@ -254,17 +254,43 @@ impl EndpointExtractor {
         })
     }
 
-    /// Extract HTTP method from annotation name
-    fn get_http_method(annotation_name: &str) -> Option<String> {
-        match annotation_name {
+    /// Extract HTTP method from annotation name and arguments
+    /// For @RequestMapping, checks the 'method' argument to determine the actual HTTP method
+    fn get_http_method(annotation: &JavaAnnotation) -> Option<String> {
+        match annotation.name.as_str() {
             "GetMapping" => Some("GET".to_string()),
             "PostMapping" => Some("POST".to_string()),
             "PutMapping" => Some("PUT".to_string()),
             "DeleteMapping" => Some("DELETE".to_string()),
             "PatchMapping" => Some("PATCH".to_string()),
-            "RequestMapping" => Some("GET".to_string()), // Default to GET for @RequestMapping
+            "RequestMapping" => {
+                // Check for explicit method argument
+                Self::extract_http_method_from_arguments(&annotation.arguments)
+            }
             _ => None,
         }
+    }
+
+    /// Extract HTTP method from @RequestMapping method argument
+    fn extract_http_method_from_arguments(arguments: &[parser_core::java::types::JavaAnnotationArgument]) -> Option<String> {
+        for arg in arguments {
+            if arg.name.as_deref() == Some("method") {
+                let value = arg.value.to_uppercase();
+                if value.contains("GET") {
+                    return Some("GET".to_string());
+                } else if value.contains("POST") {
+                    return Some("POST".to_string());
+                } else if value.contains("PUT") {
+                    return Some("PUT".to_string());
+                } else if value.contains("DELETE") {
+                    return Some("DELETE".to_string());
+                } else if value.contains("PATCH") {
+                    return Some("PATCH".to_string());
+                }
+            }
+        }
+        // Default to GET if method not specified
+        Some("GET".to_string())
     }
 
     /// Extract path from annotation arguments (without constant resolution)
@@ -389,27 +415,79 @@ mod tests {
 
     #[test]
     fn test_get_http_method() {
+        let get_mapping = JavaAnnotation {
+            name: "GetMapping".to_string(),
+            arguments: vec![],
+        };
         assert_eq!(
-            EndpointExtractor::get_http_method("GetMapping"),
+            EndpointExtractor::get_http_method(&get_mapping),
             Some("GET".to_string())
         );
+
+        let post_mapping = JavaAnnotation {
+            name: "PostMapping".to_string(),
+            arguments: vec![],
+        };
         assert_eq!(
-            EndpointExtractor::get_http_method("PostMapping"),
+            EndpointExtractor::get_http_method(&post_mapping),
             Some("POST".to_string())
         );
+
+        let put_mapping = JavaAnnotation {
+            name: "PutMapping".to_string(),
+            arguments: vec![],
+        };
         assert_eq!(
-            EndpointExtractor::get_http_method("PutMapping"),
+            EndpointExtractor::get_http_method(&put_mapping),
             Some("PUT".to_string())
         );
+
+        let delete_mapping = JavaAnnotation {
+            name: "DeleteMapping".to_string(),
+            arguments: vec![],
+        };
         assert_eq!(
-            EndpointExtractor::get_http_method("DeleteMapping"),
+            EndpointExtractor::get_http_method(&delete_mapping),
             Some("DELETE".to_string())
         );
+
+        let patch_mapping = JavaAnnotation {
+            name: "PatchMapping".to_string(),
+            arguments: vec![],
+        };
         assert_eq!(
-            EndpointExtractor::get_http_method("PatchMapping"),
+            EndpointExtractor::get_http_method(&patch_mapping),
             Some("PATCH".to_string())
         );
-        assert_eq!(EndpointExtractor::get_http_method("Other"), None);
+
+        let other = JavaAnnotation {
+            name: "Other".to_string(),
+            arguments: vec![],
+        };
+        assert_eq!(EndpointExtractor::get_http_method(&other), None);
+
+        // Test @RequestMapping with explicit POST method
+        let request_mapping_post = JavaAnnotation {
+            name: "RequestMapping".to_string(),
+            arguments: vec![parser_core::java::types::JavaAnnotationArgument {
+                name: Some("method".to_string()),
+                value: "RequestMethod.POST".to_string(),
+            }],
+        };
+        assert_eq!(
+            EndpointExtractor::get_http_method(&request_mapping_post),
+            Some("POST".to_string())
+        );
+
+        // Test @RequestMapping without method (defaults to GET)
+        let request_mapping_default = JavaAnnotation {
+            name: "RequestMapping".to_string(),
+            arguments: vec![],
+        };
+        assert_eq!(
+            EndpointExtractor::get_http_method(&request_mapping_default),
+            Some("GET".to_string())
+        );
     }
 
     #[test]

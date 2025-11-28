@@ -149,48 +149,62 @@ impl JavaAnalyzer {
                         // Get class-level annotations for base path extraction
                         let class_annotations_json = self.get_class_annotations(&definition.fqn, file_result);
 
-                        // Use context-aware extraction to resolve constant references
-                        let endpoints = EndpointExtractor::extract_endpoints_with_context(
-                            annot_json,
-                            &fqn.to_string(),
-                            relative_file_path,
-                            definition.range.start.line as i32,
-                            definition.range.end.line as i32,
-                            class_annotations_json.as_deref(),
-                            &extraction_context,
-                        );
-
-                        // Store endpoints and create relationships
-                        for endpoint in endpoints {
-                            // Create relationship from definition to endpoint
-                            let mut def_to_endpoint = ConsolidatedRelationship::definition_to_endpoint(
-                                path.clone(),
-                                path.clone(),
+                        // Only extract endpoints if the class is a Controller
+                        // This prevents FeignClient methods from being treated as endpoints
+                        if !EndpointExtractor::is_controller_class(class_annotations_json.as_deref()) {
+                            log::debug!(
+                                "[ANALYZER] Skipping endpoint extraction for method '{}' - class is not a Controller",
+                                definition.name
                             );
-                            def_to_endpoint.relationship_type = RelationshipType::DefinitionDefinesEndpoint;
-                            def_to_endpoint.source_range = ArcIntern::new(definition.range);
-                            def_to_endpoint.target_range = ArcIntern::new(Range {
-                                byte_offset: (0, 0),
-                                start: Position { line: endpoint.start_line as usize, column: 0 },
-                                end: Position { line: endpoint.end_line as usize, column: 0 },
-                            });
-                            relationships.push(def_to_endpoint);
-
-                            // Create relationship from file to endpoint
-                            let mut file_to_endpoint = ConsolidatedRelationship::file_to_endpoint(
-                                path.clone(),
-                                path.clone(),
+                        } else {
+                            log::debug!(
+                                "[ANALYZER] Extracting endpoints for method '{}' in Controller class",
+                                definition.name
                             );
-                            file_to_endpoint.relationship_type = RelationshipType::FileHasEndpoint;
-                            file_to_endpoint.source_range = ArcIntern::new(Range::empty());
-                            file_to_endpoint.target_range = ArcIntern::new(Range {
-                                byte_offset: (0, 0),
-                                start: Position { line: endpoint.start_line as usize, column: 0 },
-                                end: Position { line: endpoint.end_line as usize, column: 0 },
-                            });
-                            relationships.push(file_to_endpoint);
 
-                            self.endpoint_nodes.push(endpoint);
+                            // Use context-aware extraction to resolve constant references
+                            let endpoints = EndpointExtractor::extract_endpoints_with_context(
+                                annot_json,
+                                &fqn.to_string(),
+                                relative_file_path,
+                                definition.range.start.line as i32,
+                                definition.range.end.line as i32,
+                                class_annotations_json.as_deref(),
+                                &extraction_context,
+                            );
+
+                            // Store endpoints and create relationships
+                            for endpoint in endpoints {
+                                // Create relationship from definition to endpoint
+                                let mut def_to_endpoint = ConsolidatedRelationship::definition_to_endpoint(
+                                    path.clone(),
+                                    path.clone(),
+                                );
+                                def_to_endpoint.relationship_type = RelationshipType::DefinitionDefinesEndpoint;
+                                def_to_endpoint.source_range = ArcIntern::new(definition.range);
+                                def_to_endpoint.target_range = ArcIntern::new(Range {
+                                    byte_offset: (0, 0),
+                                    start: Position { line: endpoint.start_line as usize, column: 0 },
+                                    end: Position { line: endpoint.end_line as usize, column: 0 },
+                                });
+                                relationships.push(def_to_endpoint);
+
+                                // Create relationship from file to endpoint
+                                let mut file_to_endpoint = ConsolidatedRelationship::file_to_endpoint(
+                                    path.clone(),
+                                    path.clone(),
+                                );
+                                file_to_endpoint.relationship_type = RelationshipType::FileHasEndpoint;
+                                file_to_endpoint.source_range = ArcIntern::new(Range::empty());
+                                file_to_endpoint.target_range = ArcIntern::new(Range {
+                                    byte_offset: (0, 0),
+                                    start: Position { line: endpoint.start_line as usize, column: 0 },
+                                    end: Position { line: endpoint.end_line as usize, column: 0 },
+                                });
+                                relationships.push(file_to_endpoint);
+
+                                self.endpoint_nodes.push(endpoint);
+                            }
                         }
 
                         // Extract service calls from FeignClient method annotations

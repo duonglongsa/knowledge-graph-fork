@@ -365,6 +365,22 @@ impl EndpointExtractor {
     fn is_deprecated(annotations: &[JavaAnnotation]) -> bool {
         annotations.iter().any(|a| a.name == "Deprecated")
     }
+
+    /// Check if class is a Controller (has @RestController, @Controller, or @RequestMapping)
+    /// This helps distinguish Controllers from FeignClient interfaces
+    pub fn is_controller_class(class_annotations_json: Option<&str>) -> bool {
+        if let Some(class_json) = class_annotations_json {
+            if let Ok(class_annotations) = serde_json::from_str::<Vec<JavaAnnotation>>(class_json) {
+                return class_annotations.iter().any(|a| {
+                    matches!(
+                        a.name.as_str(),
+                        "RestController" | "Controller" | "RequestMapping"
+                    )
+                });
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]

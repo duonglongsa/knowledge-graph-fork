@@ -851,14 +851,30 @@ pub struct ServiceCallNode {
     pub service_type: String,
     /// Service or client name
     pub service_name: String,
-    /// Base URL or service identifier
+
+    /// Original service URL from annotation (may contain field references or placeholders)
+    /// Example: "ApiConfig.BASE_URL" or "${api.host}"
+    pub original_service_url: Option<String>,
+    /// Resolved service URL after field and property resolution
+    /// Example: "http://localhost:8080"
     pub service_url: String,
+
     /// HTTP method (GET, POST, PUT, DELETE, PATCH, etc.)
     pub http_method: String,
-    /// Endpoint path (e.g., /api/users/{id})
+
+    /// Original path from annotation (may contain field references or placeholders)
+    /// Example: "/${api.version}/users" or "ApiConfig.PATH"
+    pub original_path: Option<String>,
+    /// Resolved path after field and property resolution
+    /// Example: "/v1/users"
     pub path: String,
-    /// Complete path with base (e.g., /api/v1/users/{id})
+
+    /// Original full path (combination of original URL and path)
+    pub original_full_path: Option<String>,
+    /// Resolved complete path (combination of resolved URL and path)
+    /// Example: "http://localhost:8080/v1/users"
     pub full_path: String,
+
     /// Class name where service call is defined
     pub class_name: String,
     /// Fully qualified class name
@@ -876,14 +892,17 @@ pub struct ServiceCallNode {
 }
 
 impl ServiceCallNode {
-    /// Create a new ServiceCallNode
+    /// Create a new ServiceCallNode with resolved values
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         service_type: String,
         service_name: String,
+        original_service_url: Option<String>,
         service_url: String,
         http_method: String,
+        original_path: Option<String>,
         path: String,
+        original_full_path: Option<String>,
         full_path: String,
         class_name: String,
         class_fqn: String,
@@ -896,9 +915,12 @@ impl ServiceCallNode {
         Self {
             service_type,
             service_name,
+            original_service_url,
             service_url,
             http_method,
+            original_path,
             path,
+            original_full_path,
             full_path,
             class_name,
             class_fqn,
@@ -917,9 +939,12 @@ impl NodeFieldAccess for ServiceCallNode {
         match field_name {
             "service_type" => Some(self.service_type.clone()),
             "service_name" => Some(self.service_name.clone()),
+            "original_service_url" => self.original_service_url.clone(),
             "service_url" => Some(self.service_url.clone()),
             "http_method" => Some(self.http_method.clone()),
+            "original_path" => self.original_path.clone(),
             "path" => Some(self.path.clone()),
+            "original_full_path" => self.original_full_path.clone(),
             "full_path" => Some(self.full_path.clone()),
             "class_name" => Some(self.class_name.clone()),
             "class_fqn" => Some(self.class_fqn.clone()),

@@ -37,6 +37,7 @@ const handleReindexClick = async () => {
   if (!isIndexed.value || !props.workspacePath) return;
   const payload: WorkspaceIndexBodyRequest = {
     workspace_folder_path: props.workspacePath,
+    java_property_files: [],
   };
   try {
     await apiClient.triggerWorkspaceIndex(payload);

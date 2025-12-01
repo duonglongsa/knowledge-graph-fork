@@ -90,6 +90,7 @@ pub async fn run(
     workspace_path: PathBuf,
     threads: usize,
     stats_output: Option<Option<PathBuf>>,
+    properties_files: Vec<PathBuf>,
     workspace_manager: Arc<WorkspaceManager>,
     event_bus: Arc<EventBus>,
     database: Arc<KuzuDatabase>,
@@ -106,7 +107,23 @@ pub async fn run(
     // TODO: implement CLI frontend consumer
     tokio::spawn(async move { while (rx.recv().await).is_ok() {} });
 
-    let config = IndexingConfigBuilder::build(threads);
+    // Convert PathBuf to String for property files
+    let property_file_paths: Vec<String> = properties_files
+        .iter()
+        .filter_map(|p| p.to_str().map(|s| s.to_string()))
+        .collect();
+
+    if !property_file_paths.is_empty() {
+        info!(
+            "Using {} property file(s) for Java placeholder resolution:",
+            property_file_paths.len()
+        );
+        for path in &property_file_paths {
+            info!("  - {}", path);
+        }
+    }
+
+    let config = IndexingConfigBuilder::build_with_properties(threads, property_file_paths);
     let mut executor = IndexingExecutor::new(
         database.clone(),
         workspace_manager.clone(),

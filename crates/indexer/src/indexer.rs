@@ -57,11 +57,14 @@ enum IndexingProcessingResult {
     Error(ErroredFile),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct IndexingConfig {
     pub worker_threads: usize,
     pub max_file_size: usize,
     pub respect_gitignore: bool,
+    /// Java property files for resolving ${...} placeholders
+    /// Supports .properties, .yml/.yaml, and .json formats
+    pub java_property_files: Vec<String>,
 }
 
 impl Default for IndexingConfig {
@@ -70,6 +73,7 @@ impl Default for IndexingConfig {
             worker_threads: 0,
             max_file_size: 5_000_000,
             respect_gitignore: true,
+            java_property_files: Vec::new(),
         }
     }
 }
@@ -185,6 +189,7 @@ impl RepositoryIndexer {
             file_results,
             output_directory,
             database_path,
+            config,
         )?;
 
         let skipped_files_len = skipped_files.len();
@@ -418,6 +423,7 @@ impl RepositoryIndexer {
         file_results: Vec<FileProcessingResult>,
         output_directory: &str,
         database_path: &str,
+        config: &IndexingConfig,
     ) -> Result<(GraphData, WriterResult), FatalIndexingError> {
         info!(
             "Starting analysis and writing phase for repository: {}",
@@ -430,7 +436,11 @@ impl RepositoryIndexer {
             .with_label_values(&["analysis"])
             .start_timer();
 
-        let analysis_service = AnalysisService::new(self.name.clone(), self.path.clone());
+        let analysis_service = AnalysisService::new(
+            self.name.clone(),
+            self.path.clone(),
+            config.java_property_files.clone(),
+        );
 
         let mut graph_data = analysis_service
             .analyze_results(file_results)
@@ -567,7 +577,11 @@ impl RepositoryIndexer {
         let (file_results, skipped_files, errored_files, errors) =
             self.parse_files(files, config).await?;
 
-        let analysis_service = AnalysisService::new(self.name.clone(), self.path.clone());
+        let analysis_service = AnalysisService::new(
+            self.name.clone(),
+            self.path.clone(),
+            config.java_property_files.clone(),
+        );
 
         let graph_data = analysis_service
             .analyze_results(file_results)

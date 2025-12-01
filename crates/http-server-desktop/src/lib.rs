@@ -32,7 +32,6 @@ use crate::{
 };
 
 use anyhow::Result;
-use axum::http::HeaderValue;
 use axum::{
     Router,
     routing::{delete, get, post},

@@ -164,9 +164,10 @@ impl WorkspaceWorker {
         match job {
             Job::IndexWorkspaceFolder {
                 workspace_folder_path,
+                java_property_files,
                 ..
             } => {
-                self.process_index_workspace_job(workspace_folder_path)
+                self.process_index_workspace_job(workspace_folder_path, java_property_files)
                     .await
             }
             Job::ReindexWorkspaceFolderWithWatchedFiles {
@@ -203,10 +204,10 @@ impl WorkspaceWorker {
     ///    - Parsing (E)
     ///    - Analysis (T)
     ///    - Write and Load to Kuzu (L)
-    async fn process_index_workspace_job(&self, workspace_folder_path: &str) -> Result<()> {
+    async fn process_index_workspace_job(&self, workspace_folder_path: &str, java_property_files: &[String]) -> Result<()> {
         let workspace_path_buf = PathBuf::from(workspace_folder_path);
         let threads = num_cpus::get();
-        let config = IndexingConfigBuilder::build(threads);
+        let config = IndexingConfigBuilder::build_with_properties(threads, java_property_files.to_vec());
         let mut executor = IndexingExecutor::new(
             Arc::clone(&self.database),
             Arc::clone(&self.workspace_manager),
@@ -451,6 +452,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/nonexistent/path".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         assert_eq!(job.workspace_path(), "/nonexistent/path");
@@ -462,6 +464,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/path".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let mut job_info = JobInfo {
@@ -510,6 +513,7 @@ mod tests {
             job: Job::IndexWorkspaceFolder {
                 workspace_folder_path: "/test/path1".to_string(),
                 priority: JobPriority::Normal,
+                java_property_files: Vec::new(),
             },
             created_at: Utc::now(),
             started_at: None,
@@ -523,6 +527,7 @@ mod tests {
             job: Job::IndexWorkspaceFolder {
                 workspace_folder_path: "/test/path2".to_string(),
                 priority: JobPriority::Normal,
+                java_property_files: Vec::new(),
             },
             created_at: Utc::now(),
             started_at: None,

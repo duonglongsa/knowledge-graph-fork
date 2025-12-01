@@ -320,6 +320,7 @@ impl Watcher {
                         let job = Job::IndexWorkspaceFolder {
                                 workspace_folder_path: workspace_folder.workspace_folder_path.clone(),
                                 priority: JobPriority::High,
+                                java_property_files: Vec::new(),
                         };
                         if let Err(e) = watcher.job_dispatcher.dispatch(job).await {
                             error!("Failed to dispatch periodic reindex job for {}: {}", workspace_folder.workspace_folder_path, e);

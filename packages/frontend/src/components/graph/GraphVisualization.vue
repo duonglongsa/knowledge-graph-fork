@@ -228,6 +228,7 @@ const handleReindex = async () => {
   if (!props.workspaceFolderPath) return;
   const payload: WorkspaceIndexBodyRequest = {
     workspace_folder_path: props.workspaceFolderPath,
+    java_property_files: [],
   };
   try {
     await apiClient.triggerWorkspaceIndex(payload);

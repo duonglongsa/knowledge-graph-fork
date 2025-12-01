@@ -242,6 +242,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/nonexistent/path".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         // This should fail because the workspace doesn't exist, but it should still create a worker
@@ -261,11 +262,13 @@ mod tests {
         let job1 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let job2 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Low,
+            java_property_files: Vec::new(),
         };
 
         let _result1 = dispatcher.dispatch(job1).await;
@@ -284,11 +287,13 @@ mod tests {
         let job1 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace1".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let job2 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace2".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let _result1 = dispatcher.dispatch(job1).await;
@@ -307,6 +312,7 @@ mod tests {
         let job1 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let result1 = dispatcher.dispatch(job1).await;
@@ -319,6 +325,7 @@ mod tests {
         let job2 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         let result2 = dispatcher.dispatch(job2).await;
@@ -338,6 +345,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let result1 = dispatcher.dispatch(job.clone()).await;
@@ -357,6 +365,7 @@ mod tests {
         let job1 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let result1 = dispatcher.dispatch(job1).await;
@@ -376,6 +385,7 @@ mod tests {
         let job2 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         let result2 = dispatcher.dispatch(job2).await;
@@ -388,6 +398,7 @@ mod tests {
         let job3 = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Low,
+            java_property_files: Vec::new(),
         };
 
         let result3 = dispatcher.dispatch(job3).await;
@@ -410,11 +421,13 @@ mod tests {
             let job1 = Job::IndexWorkspaceFolder {
                 workspace_folder_path: "/test/workspace1".to_string(),
                 priority: JobPriority::Normal,
+                java_property_files: Vec::new(),
             };
 
             let job2 = Job::IndexWorkspaceFolder {
                 workspace_folder_path: "/test/workspace2".to_string(),
                 priority: JobPriority::Normal,
+                java_property_files: Vec::new(),
             };
 
             let _result1 = dispatcher.dispatch(job1).await;

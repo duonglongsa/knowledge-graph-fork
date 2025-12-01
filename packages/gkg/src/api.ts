@@ -144,7 +144,7 @@ export type JavaServiceCallsSuccessResponse = { service_calls: Array<JavaService
  * Each job variant represents a different type of work that can be performed.
  * Jobs are routed to workspace-specific queues for sequential processing.
  */
-export type Job = { "type": "IndexWorkspaceFolder", "data": { workspace_folder_path: string, priority: JobPriority, } } | { "type": "ReindexWorkspaceFolderWithWatchedFiles", "data": { workspace_folder_path: string, workspace_changes: Array<string>, priority: JobPriority, } } | { "type": "ReindexProjectFolderWithWatchedFiles", "data": { workspace_folder_path: string, project_folder_path: string, project_changes: Array<string>, priority: JobPriority, } };
+export type Job = { "type": "IndexWorkspaceFolder", "data": { workspace_folder_path: string, priority: JobPriority, java_property_files: Array<string>, } } | { "type": "ReindexWorkspaceFolderWithWatchedFiles", "data": { workspace_folder_path: string, workspace_changes: Array<string>, priority: JobPriority, } } | { "type": "ReindexProjectFolderWithWatchedFiles", "data": { workspace_folder_path: string, project_folder_path: string, project_changes: Array<string>, priority: JobPriority, } };
 
 export type JobInfo = { id: string, job: Job, created_at: string, started_at: string | null, completed_at: string | null, status: JobStatus, error: string | null, };
 
@@ -177,7 +177,12 @@ export type WorkspaceDeleteResponses = { "200": WorkspaceDeleteSuccessResponse, 
 
 export type WorkspaceDeleteSuccessResponse = { workspace_folder_path: string, removed: boolean, };
 
-export type WorkspaceIndexBodyRequest = { workspace_folder_path: string, };
+export type WorkspaceIndexBodyRequest = { workspace_folder_path: string, 
+/**
+ * Java property files for resolving ${...} placeholders
+ * Supports .properties, .yml/.yaml, and .json formats
+ */
+java_property_files: Array<string>, };
 
 export type WorkspaceIndexEndpointDef = { method: HttpMethod, path: "/api/workspace/index", path_request: EmptyRequest, body_request: WorkspaceIndexBodyRequest, query_request: EmptyRequest, responses: WorkspaceIndexResponses, };
 

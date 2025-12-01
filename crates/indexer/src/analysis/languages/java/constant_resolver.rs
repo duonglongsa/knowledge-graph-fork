@@ -353,19 +353,25 @@ mod tests {
         use std::sync::Arc;
         use smallvec::SmallVec;
         use parser_core::java::types::{JavaFqnPart, JavaFqnPartType};
-        use parser_core::range::Range;
+        use parser_core::utils::{Range, Position};
+
+        let empty_range = Range {
+            start: Position { line: 0, column: 0 },
+            end: Position { line: 0, column: 0 },
+            byte_offset: (0, 0),
+        };
 
         let fqn_part = JavaFqnPart::new(
             JavaFqnPartType::Field,
             "TEST".to_string(),
-            Range { start_byte: 0, end_byte: 0, start_line: 0, end_line: 0 },
+            empty_range.clone(),
         );
         let fqn: SmallVec<[JavaFqnPart; 8]> = SmallVec::from_vec(vec![fqn_part]);
         let definition = JavaDefinitionInfo::new(
             JavaDefinitionType::Field,
             "TEST".to_string(),
             Arc::new(fqn),
-            Range { start_byte: 0, end_byte: 0, start_line: 0, end_line: 0 },
+            empty_range,
         );
 
         // Test string literal extraction

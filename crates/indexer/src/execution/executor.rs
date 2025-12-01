@@ -619,7 +619,7 @@ mod tests {
             database,
             workspace_manager,
             event_bus,
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let empty_workspace = temp_dir.path().join("empty_workspace");
@@ -639,7 +639,7 @@ mod tests {
             database,
             Arc::clone(&workspace_manager),
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let mut event_receiver = event_bus.subscribe();
@@ -694,7 +694,7 @@ mod tests {
             database,
             Arc::clone(&workspace_manager),
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let mut event_receiver = event_bus.subscribe();
@@ -770,7 +770,7 @@ mod tests {
             database,
             Arc::clone(&workspace_manager),
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let mut event_receiver = event_bus.subscribe();
@@ -844,7 +844,7 @@ mod tests {
             database,
             workspace_manager,
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let mut event_receiver = event_bus.subscribe();
@@ -880,7 +880,7 @@ mod tests {
             database,
             Arc::clone(&workspace_manager),
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let mut event_receiver = event_bus.subscribe();
@@ -972,7 +972,7 @@ mod tests {
             database,
             workspace_manager,
             event_bus,
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let token = CancellationToken::new();
@@ -1000,7 +1000,7 @@ mod tests {
             database,
             workspace_manager,
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let token = CancellationToken::new();
@@ -1028,7 +1028,7 @@ mod tests {
             database,
             workspace_manager,
             event_bus,
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let result = execution.mark_workspace_status("nonexistent", Status::Indexing);
@@ -1048,7 +1048,7 @@ mod tests {
             database,
             workspace_manager,
             event_bus,
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let token = CancellationToken::new();
@@ -1068,7 +1068,7 @@ mod tests {
             database,
             workspace_manager,
             event_bus,
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         let token = CancellationToken::new();
@@ -1107,7 +1107,7 @@ mod tests {
             database,
             Arc::clone(&workspace_manager),
             Arc::clone(&event_bus),
-            IndexingConfigBuilder::build(4),
+            IndexingConfigBuilder::build_legacy(4),
         );
 
         // Register workspace and get canonical path

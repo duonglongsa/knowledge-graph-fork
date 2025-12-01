@@ -44,13 +44,21 @@ pub struct AnalysisService {
 
 impl AnalysisService {
     /// Create a new analysis service
-    pub fn new(repository_name: String, repository_path: String) -> Self {
+    pub fn new(repository_name: String, repository_path: String, java_property_files: Vec<String>) -> Self {
         let filesystem_analyzer =
             FileSystemAnalyzer::new(repository_name.clone(), repository_path.clone());
         let ruby_analyzer = RubyAnalyzer::new();
         let python_analyzer = PythonAnalyzer::new();
         let kotlin_analyzer = KotlinAnalyzer::new();
-        let java_analyzer = JavaAnalyzer::new();
+        let mut java_analyzer = JavaAnalyzer::new();
+
+        // Load Java property files if provided
+        if !java_property_files.is_empty() {
+            if let Err(e) = java_analyzer.load_property_files(&java_property_files) {
+                log::warn!("[ANALYSIS_SERVICE] Failed to load Java property files: {}", e);
+            }
+        }
+
         let csharp_analyzer = CSharpAnalyzer::new();
         let typescript_analyzer = TypeScriptAnalyzer::new();
         let rust_analyzer = RustAnalyzer::new();
@@ -100,6 +108,18 @@ impl AnalysisService {
             let mut imported_symbol_to_imported_symbols = HashMap::new();
             let mut imported_symbol_to_definitions = HashMap::new();
             let mut imported_symbol_to_files = HashMap::new();
+
+            // Phase 2: Two-pass for Java - collect all definitions first for cross-file resolution
+            if language == SupportedLanguage::Java {
+                log::debug!("[ANALYSIS_SERVICE] Pass 1: Collecting all Java definitions");
+                for file_result in &results {
+                    self.java_analyzer.collect_definitions(file_result);
+                }
+                log::info!(
+                    "[ANALYSIS_SERVICE] Collected {} Java definitions for cross-file resolution",
+                    self.java_analyzer.all_java_definitions.len()
+                );
+            }
 
             let mut file_references = Vec::new();
             for file_result in results {

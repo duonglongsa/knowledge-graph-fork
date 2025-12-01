@@ -98,10 +98,13 @@ pub static SERVICE_CALL_TABLE: NodeTable = NodeTable {
         ColumnDefinition::new("id").uint32().primary_key(),
         ColumnDefinition::new("service_type"),          // FeignClient, RestTemplate, WebClient, HttpClient, OkHttp, Retrofit
         ColumnDefinition::new("service_name"),          // Service or client name
-        ColumnDefinition::new("service_url"),           // Base URL or service identifier
+        ColumnDefinition::new("original_service_url"),  // Original URL from annotation (may contain field references or placeholders)
+        ColumnDefinition::new("service_url"),           // Resolved URL after field and property resolution
         ColumnDefinition::new("http_method"),           // GET, POST, PUT, DELETE, PATCH, etc.
-        ColumnDefinition::new("path"),                  // Endpoint path: /api/users/{id}
-        ColumnDefinition::new("full_path"),             // Complete path with base: /api/v1/users/{id}
+        ColumnDefinition::new("original_path"),         // Original path from annotation (may contain field references or placeholders)
+        ColumnDefinition::new("path"),                  // Resolved path after field and property resolution
+        ColumnDefinition::new("original_full_path"),    // Original full path (combination of original URL and path)
+        ColumnDefinition::new("full_path"),             // Resolved complete path (combination of resolved URL and path)
         ColumnDefinition::new("class_name"),            // Class name where service call is defined
         ColumnDefinition::new("class_fqn"),             // Fully qualified class name
         ColumnDefinition::new("method_name"),           // Method name

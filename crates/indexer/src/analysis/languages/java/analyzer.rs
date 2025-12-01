@@ -28,8 +28,12 @@ use parser_core::utils::{Position, Range};
 pub struct JavaAnalyzer {
     expression_resolver: ExpressionResolver,
     constant_resolver: ConstantResolver,
+    service_call_extractor: ServiceCallExtractor,
     endpoint_nodes: Vec<EndpointNode>,
     service_call_nodes: Vec<ServiceCallNode>,
+    /// Global definition index: All Java definitions from all processed files
+    /// Used for cross-file field resolution (Phase 2)
+    pub(crate) all_java_definitions: Vec<JavaDefinitionInfo>,
 }
 
 impl JavaAnalyzer {
@@ -37,8 +41,39 @@ impl JavaAnalyzer {
         Self {
             expression_resolver: ExpressionResolver::new(),
             constant_resolver: ConstantResolver::new(),
+            service_call_extractor: ServiceCallExtractor::new(),
             endpoint_nodes: Vec::new(),
             service_call_nodes: Vec::new(),
+            all_java_definitions: Vec::new(),
+        }
+    }
+
+    /// Load Java property files for ${...} placeholder resolution
+    ///
+    /// # Arguments
+    /// * `property_file_paths` - Paths to property files (.properties, .yml, .json)
+    ///
+    /// # Returns
+    /// * `Ok(usize)` - Number of properties loaded successfully
+    /// * `Err(String)` - Error message if loading fails
+    pub fn load_property_files(&mut self, property_file_paths: &[String]) -> Result<usize, String> {
+        self.service_call_extractor.load_property_files(property_file_paths)
+    }
+
+    /// Phase 2: Pre-collect all Java definitions for cross-file resolution
+    /// This should be called BEFORE process_definitions to build global index
+    pub fn collect_definitions(&mut self, file_result: &FileProcessingResult) {
+        if let Some(defs) = file_result.definitions.iter_java() {
+            let count_before = self.all_java_definitions.len();
+            for definition in defs {
+                self.all_java_definitions.push(definition.clone());
+            }
+            let count_after = self.all_java_definitions.len();
+            log::debug!(
+                "[ANALYZER] Collected {} definitions from file (total: {})",
+                count_after - count_before,
+                count_after
+            );
         }
     }
 
@@ -49,18 +84,17 @@ impl JavaAnalyzer {
         definition_map: &mut HashMap<(String, String), (DefinitionNode, FqnType)>,
         relationships: &mut Vec<ConsolidatedRelationship>,
     ) {
-        // Collect all Java definitions for constant resolution
-        // Need to collect owned values, not references
-        let all_definitions: Vec<JavaDefinitionInfo> = if let Some(defs) = file_result.definitions.iter_java() {
-            defs.cloned().collect()
-        } else {
-            Vec::new()
-        };
+        // Phase 2: Use global definition index (pre-collected via collect_definitions)
+        // This allows cross-file field resolution (e.g., Config.BASE_URL from another file)
+        log::debug!(
+            "[ANALYZER] Processing {} with {} global definitions available",
+            relative_file_path,
+            self.all_java_definitions.len()
+        );
 
-        // Create extraction context for constant resolution
         let extraction_context = ExtractionContext {
             constant_resolver: &self.constant_resolver,
-            all_definitions: &all_definitions,
+            all_definitions: &self.all_java_definitions,
         };
 
         if let Some(defs) = file_result.definitions.iter_java() {
@@ -211,7 +245,8 @@ impl JavaAnalyzer {
                         let class_annotations_json = self.get_class_annotations(&definition.fqn, file_result);
                         let (class_fqn_str, class_name) = self.get_class_info(&definition.fqn);
 
-                        let service_calls = ServiceCallExtractor::extract_service_call_from_method(
+                        // Phase 2: Use global definition index for cross-file resolution
+                        let service_calls = self.service_call_extractor.extract_service_call_from_method(
                             annot_json,
                             &fqn.to_string(),
                             &definition.name,
@@ -221,6 +256,7 @@ impl JavaAnalyzer {
                             relative_file_path,
                             definition.range.start.line as i32,
                             definition.range.end.line as i32,
+                            &self.all_java_definitions,
                         );
 
                         // Store service calls and create relationships
@@ -264,13 +300,15 @@ impl JavaAnalyzer {
                     JavaDefinitionType::Class | JavaDefinitionType::Interface
                 ) {
                     if let Some(ref annot_json) = annotations_json {
-                        let service_calls = ServiceCallExtractor::extract_service_calls_from_annotations(
+                        // Phase 2: Use global definition index for cross-file resolution
+                        let service_calls = self.service_call_extractor.extract_service_calls_from_annotations(
                             annot_json,
                             &fqn.to_string(),
                             &definition.name,
                             relative_file_path,
                             definition.range.start.line as i32,
                             definition.range.end.line as i32,
+                            &self.all_java_definitions,
                         );
 
                         // Store service calls and create relationships

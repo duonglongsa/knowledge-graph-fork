@@ -24,6 +24,10 @@ use workspace_manager::WorkspaceManager;
 #[ts(export, export_to = "../../../packages/gkg/src/api.ts")]
 pub struct WorkspaceIndexBodyRequest {
     pub workspace_folder_path: String,
+    /// Java property files for resolving ${...} placeholders
+    /// Supports .properties, .yml/.yaml, and .json formats
+    #[serde(default)]
+    pub java_property_files: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, TS, Default)]
@@ -112,6 +116,7 @@ pub async fn index_handler(
     let job = crate::queue::job::Job::IndexWorkspaceFolder {
         workspace_folder_path: payload.workspace_folder_path.clone(),
         priority: crate::queue::job::JobPriority::High,
+        java_property_files: payload.java_property_files.clone(),
     };
 
     if let Err(e) = state.job_dispatcher.dispatch(job).await {
@@ -139,11 +144,12 @@ pub fn spawn_indexing_task(
     workspace_manager: Arc<WorkspaceManager>,
     event_bus: Arc<EventBus>,
     workspace_folder_path: String,
+    java_property_files: Vec<String>,
 ) {
     tokio::spawn(async move {
         let workspace_path_buf = PathBuf::from(workspace_folder_path.clone());
         let threads = num_cpus::get();
-        let config = IndexingConfigBuilder::build(threads);
+        let config = IndexingConfigBuilder::build_with_properties(threads, java_property_files);
         let mut executor = IndexingExecutor::new(database, workspace_manager, event_bus, config);
         let result = tokio::task::spawn(async move {
             executor
@@ -245,6 +251,7 @@ mod tests {
 
         let request_body = WorkspaceIndexBodyRequest {
             workspace_folder_path: "/nonexistent/path".to_string(),
+            java_property_files: Vec::new(),
         };
 
         let response = server.post("/workspace/index").json(&request_body).await;
@@ -261,6 +268,7 @@ mod tests {
 
         let request_body = WorkspaceIndexBodyRequest {
             workspace_folder_path: temp_dir.path().to_string_lossy().to_string(),
+            java_property_files: Vec::new(),
         };
 
         let response = server.post("/workspace/index").json(&request_body).await;
@@ -281,6 +289,7 @@ mod tests {
 
         let request_body = WorkspaceIndexBodyRequest {
             workspace_folder_path: temp_workspace.path().to_string_lossy().to_string(),
+            java_property_files: Vec::new(),
         };
 
         let response = server.post("/workspace/index").json(&request_body).await;
@@ -309,6 +318,7 @@ mod tests {
         let workspace_folder_path = temp_workspace.path().to_string_lossy().to_string();
         let request_body = WorkspaceIndexBodyRequest {
             workspace_folder_path,
+            java_property_files: Vec::new(),
         };
 
         let start_time = std::time::Instant::now();

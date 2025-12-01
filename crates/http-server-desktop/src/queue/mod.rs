@@ -39,6 +39,7 @@
 //! let job = Job::IndexWorkspaceFolder {
 //!     workspace_folder_path: "/path/to/workspace".to_string(),
 //!     priority: JobPriority::High,
+//!     java_property_files: Vec::new(),
 //! };
 //!
 //! let job_id = dispatcher.dispatch(job).await?;
@@ -91,6 +92,7 @@ mod integration_tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let job_id = dispatcher.dispatch(job).await;
@@ -109,6 +111,7 @@ mod integration_tests {
         let normal_job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let job_id1 = dispatcher.dispatch(normal_job).await;
@@ -120,6 +123,7 @@ mod integration_tests {
         let high_priority_job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/workspace".to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         let job_id2 = dispatcher.dispatch(high_priority_job).await;
@@ -143,6 +147,7 @@ mod integration_tests {
             let job = Job::IndexWorkspaceFolder {
                 workspace_folder_path: workspace.to_string(),
                 priority: JobPriority::Normal,
+                java_property_files: Vec::new(),
             };
 
             let job_id = dispatcher.dispatch(job).await;
@@ -174,6 +179,7 @@ mod integration_tests {
             let job = Job::IndexWorkspaceFolder {
                 workspace_folder_path: format!("{workspace_path}-{i}"),
                 priority: JobPriority::Normal,
+                java_property_files: Vec::new(),
             };
 
             let job_id = dispatcher.dispatch(job).await;
@@ -193,6 +199,7 @@ mod integration_tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/integration/test".to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         assert_eq!(job.workspace_path(), "/integration/test");

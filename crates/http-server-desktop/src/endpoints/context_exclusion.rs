@@ -128,6 +128,7 @@ pub async fn context_exclusion_handler(
         let job = crate::queue::job::Job::IndexWorkspaceFolder {
             workspace_folder_path: workspace_folder_path.to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         if let Err(e) = state.job_dispatcher.dispatch(job).await {

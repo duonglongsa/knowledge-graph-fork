@@ -1,20 +1,127 @@
 use crate::analysis::types::ServiceCallNode;
-use parser_core::java::types::JavaAnnotation;
+use super::field_resolver::FieldResolver;
+use super::property_resolver::PropertyResolver;
+use parser_core::java::types::{JavaAnnotation, JavaDefinitionInfo};
 use serde_json::Value;
 
 /// Extracts external service call information from Java annotations
-pub struct ServiceCallExtractor;
+///
+/// This extractor resolves field references and property placeholders in annotation values:
+/// - Field references: `Config.BASE_URL` → `"http://localhost:8080"`
+/// - Property placeholders: `"${api.host}"` → `"http://localhost:8080"`
+/// - Combined: Field resolves to placeholder, then placeholder resolves to value
+pub struct ServiceCallExtractor {
+    field_resolver: FieldResolver,
+    property_resolver: PropertyResolver,
+}
 
 impl ServiceCallExtractor {
+    pub fn new() -> Self {
+        Self {
+            field_resolver: FieldResolver::new(),
+            property_resolver: PropertyResolver::new(),
+        }
+    }
+
+    /// Load property files for placeholder resolution
+    ///
+    /// # Arguments
+    /// * `property_file_paths` - Paths to property files (.properties, .yml, .json)
+    ///
+    /// # Returns
+    /// * `Ok(usize)` - Number of properties loaded successfully
+    /// * `Err(String)` - Error message if loading fails
+    pub fn load_property_files(&self, property_file_paths: &[String]) -> Result<usize, String> {
+        if property_file_paths.is_empty() {
+            return Ok(0);
+        }
+
+        match self.property_resolver.load_from_files(property_file_paths) {
+            Ok(count) => {
+                log::info!(
+                    "[SERVICE_CALL_EXTRACTOR] Loaded {} properties from {} file(s)",
+                    count,
+                    property_file_paths.len()
+                );
+                Ok(count)
+            }
+            Err(e) => {
+                let error_msg = format!("Failed to load property files: {}", e);
+                log::error!("[SERVICE_CALL_EXTRACTOR] {}", error_msg);
+                Err(error_msg)
+            }
+        }
+    }
+
+    /// Resolve a value through field resolution → property resolution pipeline
+    ///
+    /// # Arguments
+    /// * `value` - The original value from annotation (may be field reference or placeholder)
+    /// * `definitions` - All Java definitions for field resolution
+    /// * `context_package` - Package context for resolving simple field names
+    ///
+    /// # Returns
+    /// Resolved value after applying both resolvers
+    fn resolve_value(
+        &self,
+        value: &str,
+        definitions: &[JavaDefinitionInfo],
+        context_package: Option<&str>,
+    ) -> String {
+        log::debug!(
+            "[SERVICE_CALL_EXTRACTOR] Resolving value: '{}' (definitions count: {}, package: {:?})",
+            value,
+            definitions.len(),
+            context_package
+        );
+
+        // Stage 1: Field resolution
+        if FieldResolver::is_field_reference(value) {
+            if let Some(resolved) = self.field_resolver.resolve(value, definitions, context_package) {
+                log::info!(
+                    "[SERVICE_CALL_EXTRACTOR] Field resolved: '{}' -> '{}'",
+                    value,
+                    resolved
+                );
+                // Stage 2: Property resolution on field's value
+                let final_value = self.property_resolver.resolve(&resolved);
+                log::info!(
+                    "[SERVICE_CALL_EXTRACTOR] Property resolved: '{}' -> '{}'",
+                    resolved,
+                    final_value
+                );
+                return final_value;
+            } else {
+                log::warn!(
+                    "[SERVICE_CALL_EXTRACTOR] Field reference '{}' could not be resolved",
+                    value
+                );
+            }
+        }
+
+        // Direct property resolution
+        let final_value = self.property_resolver.resolve(value);
+        if final_value != value {
+            log::info!(
+                "[SERVICE_CALL_EXTRACTOR] Property resolved: '{}' -> '{}'",
+                value,
+                final_value
+            );
+        }
+        final_value
+    }
+
     /// Extract service calls from annotations JSON string
     /// Returns a list of ServiceCallNode instances if valid service call annotations are found
     pub fn extract_service_calls_from_annotations(
+        &self,
         annotations_json: &str,
         class_fqn: &str,
         class_name: &str,
         file_path: &str,
         start_line: i32,
         end_line: i32,
+        definitions: &[JavaDefinitionInfo],
     ) -> Vec<ServiceCallNode> {
         let mut service_calls = Vec::new();
 
@@ -32,16 +139,21 @@ impl ServiceCallExtractor {
             }
         };
 
+        // Extract package from class FQN for context
+        let context_package = class_fqn.rsplitn(2, '.').nth(1).map(|s| s.to_string());
+
         // Check for @FeignClient annotation
         for annotation in &class_annotations {
             if annotation.name == "FeignClient" {
-                if let Some(service_call) = Self::create_service_call_from_feign_client(
+                if let Some(service_call) = self.create_service_call_from_feign_client(
                     annotation,
                     class_fqn,
                     class_name,
                     file_path,
                     start_line,
                     end_line,
+                    definitions,
+                    context_package.as_deref(),
                 ) {
                     service_calls.push(service_call);
                 }
@@ -54,6 +166,7 @@ impl ServiceCallExtractor {
     /// Extract service calls from method annotations (for interfaces with @FeignClient)
     /// This is called for each method in a FeignClient interface
     pub fn extract_service_call_from_method(
+        &self,
         method_annotations_json: &str,
         method_fqn: &str,
         method_name: &str,
@@ -63,6 +176,7 @@ impl ServiceCallExtractor {
         file_path: &str,
         start_line: i32,
         end_line: i32,
+        definitions: &[JavaDefinitionInfo],
     ) -> Vec<ServiceCallNode> {
         let mut service_calls = Vec::new();
 
@@ -77,12 +191,22 @@ impl ServiceCallExtractor {
             return service_calls;
         }
 
+        // Extract package from class FQN for context
+        let context_package = class_fqn.rsplitn(2, '.').nth(1).map(|s| s.to_string());
+
         // Extract base URL from @FeignClient annotation
-        let (service_name, service_url) = if let Some(class_json) = class_annotations_json {
+        let (service_name_raw, service_url_raw) = if let Some(class_json) = class_annotations_json {
             Self::extract_feign_client_info(class_json)
         } else {
             (String::new(), String::new())
         };
+
+        // Resolve service URL
+        let service_url_resolved = self.resolve_value(
+            &service_url_raw,
+            definitions,
+            context_package.as_deref(),
+        );
 
         // Parse method annotations
         let method_annotations: Vec<JavaAnnotation> =
@@ -100,10 +224,11 @@ impl ServiceCallExtractor {
 
         // Check each annotation for HTTP mapping annotations
         for annotation in &method_annotations {
-            if let Some(service_call) = Self::create_service_call_from_method_annotation(
+            if let Some(service_call) = self.create_service_call_from_method_annotation(
                 annotation,
-                &service_name,
-                &service_url,
+                &service_name_raw,
+                &service_url_raw,
+                &service_url_resolved,
                 method_name,
                 method_fqn,
                 class_name,
@@ -111,6 +236,8 @@ impl ServiceCallExtractor {
                 file_path,
                 start_line,
                 end_line,
+                definitions,
+                context_package.as_deref(),
             ) {
                 service_calls.push(service_call);
             }
@@ -156,25 +283,32 @@ impl ServiceCallExtractor {
 
     /// Create ServiceCallNode from @FeignClient annotation (class-level)
     fn create_service_call_from_feign_client(
+        &self,
         annotation: &JavaAnnotation,
         class_fqn: &str,
         class_name: &str,
         file_path: &str,
         start_line: i32,
         end_line: i32,
+        definitions: &[JavaDefinitionInfo],
+        context_package: Option<&str>,
     ) -> Option<ServiceCallNode> {
         // Extract service name from 'name' or 'value' argument
         let service_name = Self::extract_string_argument(annotation, "name")
             .or_else(|| Self::extract_string_argument(annotation, "value"))?;
 
         // Extract URL from 'url' argument (optional)
-        let service_url =
+        let service_url_raw =
             Self::extract_string_argument(annotation, "url").unwrap_or_else(|| service_name.clone());
 
+        // Resolve URL through pipeline
+        let service_url_resolved = self.resolve_value(&service_url_raw, definitions, context_package);
+
         log::info!(
-            "[SERVICE_CALL_EXTRACTOR] Extracted FeignClient: {} with URL {} from {}:{}",
+            "[SERVICE_CALL_EXTRACTOR] Extracted FeignClient: {} with URL {} (resolved: {}) from {}:{}",
             service_name,
-            service_url,
+            service_url_raw,
+            service_url_resolved,
             file_path,
             start_line
         );
@@ -183,13 +317,16 @@ impl ServiceCallExtractor {
         Some(ServiceCallNode::new(
             "FeignClient".to_string(),
             service_name,
-            service_url.clone(),
-            "UNKNOWN".to_string(), // Will be determined by method annotations
-            "/".to_string(),
-            service_url,
+            Some(service_url_raw.clone()),  // original
+            service_url_resolved.clone(),    // resolved
+            "UNKNOWN".to_string(),           // Will be determined by method annotations
+            Some("/".to_string()),           // original path
+            "/".to_string(),                 // resolved path
+            Some(service_url_raw.clone()),   // original full_path
+            service_url_resolved,            // resolved full_path
             class_name.to_string(),
             class_fqn.to_string(),
-            "".to_string(), // No specific method at class level
+            "".to_string(),                  // No specific method at class level
             class_fqn.to_string(),
             file_path.to_string(),
             start_line,
@@ -198,10 +335,13 @@ impl ServiceCallExtractor {
     }
 
     /// Create ServiceCallNode from method annotation in FeignClient interface
+    #[allow(clippy::too_many_arguments)]
     fn create_service_call_from_method_annotation(
+        &self,
         annotation: &JavaAnnotation,
         service_name: &str,
-        service_url: &str,
+        service_url_raw: &str,
+        service_url_resolved: &str,
         method_name: &str,
         method_fqn: &str,
         class_name: &str,
@@ -209,20 +349,35 @@ impl ServiceCallExtractor {
         file_path: &str,
         start_line: i32,
         end_line: i32,
+        definitions: &[JavaDefinitionInfo],
+        context_package: Option<&str>,
     ) -> Option<ServiceCallNode> {
         // Check if this is an HTTP mapping annotation
         let http_method = Self::get_http_method(annotation)?;
 
         // Extract path from annotation
-        let path = Self::extract_path_from_annotation(annotation);
+        let path_raw = Self::extract_path_from_annotation(annotation);
 
-        // Build full path
-        let full_path = format!("{}{}", service_url.trim_end_matches('/'), &path);
+        // Resolve path through pipeline
+        let path_resolved = self.resolve_value(&path_raw, definitions, context_package);
+
+        // Build full paths
+        let full_path_resolved = format!(
+            "{}{}",
+            service_url_resolved.trim_end_matches('/'),
+            &path_resolved
+        );
+        let full_path_raw = format!(
+            "{}{}",
+            service_url_raw.trim_end_matches('/'),
+            &path_raw
+        );
 
         log::info!(
-            "[SERVICE_CALL_EXTRACTOR] Extracted service call: {} {} from {}:{}",
+            "[SERVICE_CALL_EXTRACTOR] Extracted service call: {} {} (resolved: {}) from {}:{}",
             http_method,
-            full_path,
+            full_path_raw,
+            full_path_resolved,
             file_path,
             start_line
         );
@@ -230,10 +385,13 @@ impl ServiceCallExtractor {
         Some(ServiceCallNode::new(
             "FeignClient".to_string(),
             service_name.to_string(),
-            service_url.to_string(),
+            Some(service_url_raw.to_string()),  // original URL
+            service_url_resolved.to_string(),    // resolved URL
             http_method,
-            path,
-            full_path,
+            Some(path_raw),                      // original path
+            path_resolved,                       // resolved path
+            Some(full_path_raw),                 // original full path
+            full_path_resolved,                  // resolved full path
             class_name.to_string(),
             class_fqn.to_string(),
             method_name.to_string(),
@@ -346,6 +504,12 @@ impl ServiceCallExtractor {
             }
         }
         None
+    }
+}
+
+impl Default for ServiceCallExtractor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

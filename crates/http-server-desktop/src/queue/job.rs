@@ -29,6 +29,8 @@ pub enum Job {
     IndexWorkspaceFolder {
         workspace_folder_path: String,
         priority: JobPriority,
+        #[serde(default)]
+        java_property_files: Vec<String>,
     },
     ReindexWorkspaceFolderWithWatchedFiles {
         workspace_folder_path: String,
@@ -152,6 +154,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/path".to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         assert_eq!(job.workspace_path(), "/test/path");
@@ -164,6 +167,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/test/path".to_string(),
             priority: JobPriority::High,
+            java_property_files: Vec::new(),
         };
 
         let job_info = JobInfo {
@@ -207,6 +211,7 @@ mod tests {
         let job = Job::IndexWorkspaceFolder {
             workspace_folder_path: "/workspace/path".to_string(),
             priority: JobPriority::Normal,
+            java_property_files: Vec::new(),
         };
 
         let serialized = serde_json::to_string(&job).unwrap();

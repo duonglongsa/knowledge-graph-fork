@@ -35,6 +35,7 @@ database = { path = "../database" }
 tempfile = { workspace = true }
 ignore = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 rayon = { workspace = true }
 rustc-hash = { workspace = true }
 smallvec = { workspace = true }

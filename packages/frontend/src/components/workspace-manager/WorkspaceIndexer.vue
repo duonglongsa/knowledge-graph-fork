@@ -12,6 +12,7 @@ const emit = defineEmits<{
 }>();
 
 const workspacePath = ref('');
+const propertyFiles = ref('');
 const {
   startIndexing,
   stopIndexing,
@@ -35,9 +36,19 @@ const hasProgress = computed(
 const handleIndex = async () => {
   if (!canIndex.value) return;
 
-  await startIndexing({ workspace_folder_path: workspacePath.value.trim() });
+  // Parse property files from comma-separated string
+  const javaPropertyFiles = propertyFiles.value
+    .split(',')
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0);
+
+  await startIndexing({
+    workspace_folder_path: workspacePath.value.trim(),
+    java_property_files: javaPropertyFiles,
+  });
   emit('indexed');
   workspacePath.value = '';
+  propertyFiles.value = '';
 };
 
 const handleStop = () => {
@@ -144,6 +155,15 @@ const getEventTimestamp = (event: WorkspaceIndexingEvent | ProjectIndexingEvent)
           :disabled="isIndexing"
           class="h-6 text-xs font-mono bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary/20"
           :aria-label="'Workspace path'"
+          @keydown.enter="handleIndex"
+        />
+
+        <Input
+          v-model="propertyFiles"
+          placeholder="config/app.properties, config/app-prod.yml (optional)"
+          :disabled="isIndexing"
+          class="h-6 text-xs font-mono bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary/20"
+          :aria-label="'Java property files (comma-separated)'"
           @keydown.enter="handleIndex"
         />
 

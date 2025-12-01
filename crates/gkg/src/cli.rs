@@ -46,6 +46,12 @@ pub enum Commands {
         /// Output statistics. Optionally specify a file path to save to.
         #[arg(long, value_name = "FILE", num_args = 0..=1, require_equals = true)]
         stats: Option<Option<PathBuf>>,
+
+        /// Java property files (.properties, .yml, .json) for resolving ${...} placeholders.
+        /// Can be specified multiple times. Later files override earlier ones.
+        /// Example: --properties-file config/application.properties --properties-file config/application-prod.yml
+        #[arg(long = "properties-file", value_name = "FILE")]
+        properties_files: Vec<PathBuf>,
     },
     /// Manage the gkg server
     Server {

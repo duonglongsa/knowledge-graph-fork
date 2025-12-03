@@ -221,6 +221,11 @@ impl JavaAnalyzer {
                                     start: Position { line: endpoint.start_line as usize, column: 0 },
                                     end: Position { line: endpoint.end_line as usize, column: 0 },
                                 });
+                                // Add endpoint metadata for ID lookup
+                                def_to_endpoint.target_endpoint_metadata = Some((
+                                    endpoint.http_method.clone(),
+                                    endpoint.path.clone(),
+                                ));
                                 relationships.push(def_to_endpoint);
 
                                 // Create relationship from file to endpoint
@@ -235,6 +240,11 @@ impl JavaAnalyzer {
                                     start: Position { line: endpoint.start_line as usize, column: 0 },
                                     end: Position { line: endpoint.end_line as usize, column: 0 },
                                 });
+                                // Add endpoint metadata for ID lookup
+                                file_to_endpoint.target_endpoint_metadata = Some((
+                                    endpoint.http_method.clone(),
+                                    endpoint.path.clone(),
+                                ));
                                 relationships.push(file_to_endpoint);
 
                                 self.endpoint_nodes.push(endpoint);

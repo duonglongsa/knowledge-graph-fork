@@ -42,8 +42,10 @@ pub struct ConsolidatedRelationship {
     pub target_range: ArcIntern<Range>,
     /// Definition location for source node (used for ID lookup)
     pub source_definition_range: Option<ArcIntern<Range>>,
-    /// Definition location for target node (used for ID lookup)  
+    /// Definition location for target node (used for ID lookup)
     pub target_definition_range: Option<ArcIntern<Range>>,
+    /// Endpoint metadata for target node (http_method, path) - used for ID lookup
+    pub target_endpoint_metadata: Option<(String, String)>,
 }
 
 impl Default for ConsolidatedRelationship {
@@ -59,6 +61,7 @@ impl Default for ConsolidatedRelationship {
             target_range: ArcIntern::new(Range::empty()),
             source_definition_range: None,
             target_definition_range: None,
+            target_endpoint_metadata: None,
         }
     }
 }

@@ -16,8 +16,8 @@ pub struct NodeIdGenerator {
     definition_ids: HashMap<(String, usize, usize), u32>,
     /// Imported symbol byte range to ID mapping
     imported_symbol_ids: HashMap<(String, usize, usize), u32>,
-    /// Endpoint line range to ID mapping
-    endpoint_ids: HashMap<(String, usize, usize), u32>,
+    /// Endpoint to ID mapping - key: (file_path, start_line, end_line, http_method, path)
+    endpoint_ids: HashMap<(String, usize, usize, String, String), u32>,
     /// Service call line range to ID mapping
     service_call_ids: HashMap<(String, usize, usize), u32>,
     /// Next available IDs for each type
@@ -165,20 +165,23 @@ impl NodeIdGenerator {
         file_path: &str,
         start_line: usize,
         end_line: usize,
+        http_method: &str,
+        path: &str,
     ) -> u32 {
-        if let Some(&id) = self.endpoint_ids.get(&(
+        let key = (
             file_path.to_string(),
             start_line,
             end_line,
-        )) {
+            http_method.to_string(),
+            path.to_string(),
+        );
+
+        if let Some(&id) = self.endpoint_ids.get(&key) {
             return id;
         }
 
         let id = self.next_endpoint_id;
-        self.endpoint_ids.insert(
-            (file_path.to_string(), start_line, end_line),
-            id,
-        );
+        self.endpoint_ids.insert(key, id);
         self.next_endpoint_id += 1;
 
         id
@@ -189,9 +192,17 @@ impl NodeIdGenerator {
         file_path: &str,
         start_line: usize,
         end_line: usize,
+        http_method: &str,
+        path: &str,
     ) -> Option<u32> {
         self.endpoint_ids
-            .get(&(file_path.to_string(), start_line, end_line))
+            .get(&(
+                file_path.to_string(),
+                start_line,
+                end_line,
+                http_method.to_string(),
+                path.to_string(),
+            ))
             .copied()
     }
 
@@ -277,6 +288,8 @@ impl<'a> GraphMapper<'a> {
                 &endpoint_node.file_path,
                 endpoint_node.start_line as usize,
                 endpoint_node.end_line as usize,
+                &endpoint_node.http_method,
+                &endpoint_node.path,
             );
         }
 
@@ -620,11 +633,25 @@ impl<'a> GraphMapper<'a> {
                         rel.source_range.byte_offset.0,
                         rel.source_range.byte_offset.1,
                     );
-                    let target_id = self.node_id_generator.get_endpoint_id(
-                        to_path,
-                        rel.target_range.start.line,
-                        rel.target_range.end.line,
-                    );
+
+                    // Get endpoint metadata for proper ID lookup
+                    let target_id = if let Some((http_method, path)) = &rel.target_endpoint_metadata {
+                        self.node_id_generator.get_endpoint_id(
+                            to_path,
+                            rel.target_range.start.line,
+                            rel.target_range.end.line,
+                            http_method,
+                            path,
+                        )
+                    } else {
+                        warn!(
+                            "({}) Missing endpoint metadata for target: line({},{})",
+                            kind_str,
+                            rel.target_range.start.line,
+                            rel.target_range.end.line
+                        );
+                        None
+                    };
                     if source_id.is_none() {
                         def_not_found += 1;
                         warn!(
@@ -651,11 +678,25 @@ impl<'a> GraphMapper<'a> {
                 }
                 RelationshipKind::FileToEndpoint => {
                     let source_id = self.node_id_generator.get_file_id(from_path);
-                    let target_id = self.node_id_generator.get_endpoint_id(
-                        to_path,
-                        rel.target_range.start.line,
-                        rel.target_range.end.line,
-                    );
+
+                    // Get endpoint metadata for proper ID lookup
+                    let target_id = if let Some((http_method, path)) = &rel.target_endpoint_metadata {
+                        self.node_id_generator.get_endpoint_id(
+                            to_path,
+                            rel.target_range.start.line,
+                            rel.target_range.end.line,
+                            http_method,
+                            path,
+                        )
+                    } else {
+                        warn!(
+                            "({}) Missing endpoint metadata for target: line({},{})",
+                            kind_str,
+                            rel.target_range.start.line,
+                            rel.target_range.end.line
+                        );
+                        None
+                    };
                     if source_id.is_none() {
                         file_not_found += 1;
                         warn!(

@@ -219,6 +219,8 @@ impl WriterService {
                                 &n.file_path,
                                 n.start_line as usize,
                                 n.end_line as usize,
+                                &n.http_method,
+                                &n.path,
                             )
                             .unwrap_or(0)
                     },

@@ -2,7 +2,7 @@
 import type { TSProjectInfo } from "./project_info";
 import type { TSWorkspaceFolderInfo } from "./workspace_folder";
 
-export type ApiContract = { info: InfoEndpointDef, workspace_index: WorkspaceIndexEndpointDef, workspace_list: WorkspaceListEndpointDef, workspace_delete: WorkspaceDeleteEndpointDef, index: WorkspaceIndexEndpointDef, events: EventsEndpointDef, graph_initial: GraphInitialEndpointDef, graph_neighbors: GraphNeighborsEndpointDef, graph_search: GraphSearchEndpointDef, graph_stats: GraphStatsEndpointDef, context_exclusion: ContextExclusionEndpointDef, };
+export type ApiContract = { info: InfoEndpointDef, workspace_index: WorkspaceIndexEndpointDef, workspace_list: WorkspaceListEndpointDef, workspace_delete: WorkspaceDeleteEndpointDef, index: WorkspaceIndexEndpointDef, events: EventsEndpointDef, graph_initial: GraphInitialEndpointDef, graph_neighbors: GraphNeighborsEndpointDef, graph_search: GraphSearchEndpointDef, graph_stats: GraphStatsEndpointDef, context_exclusion: ContextExclusionEndpointDef, java_endpoints: JavaEndpointsEndpointDef, java_service_calls: JavaServiceCallsEndpointDef, endpoint_flow: EndpointFlowEndpointDef, };
 
 /**
  * Represents a node in the call tree

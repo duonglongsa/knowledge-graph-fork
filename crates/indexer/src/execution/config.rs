@@ -3,6 +3,11 @@ use crate::indexer::IndexingConfig;
 pub struct IndexingConfigBuilder;
 
 impl IndexingConfigBuilder {
+    /// Build indexing config without property files (legacy method for backward compatibility)
+    pub fn build_legacy(threads: usize) -> IndexingConfig {
+        Self::build(threads)
+    }
+
     /// Build indexing config without property files
     pub fn build(threads: usize) -> IndexingConfig {
         Self::build_with_properties(threads, Vec::new())

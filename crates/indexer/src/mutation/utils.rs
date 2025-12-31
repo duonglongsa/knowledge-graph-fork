@@ -166,14 +166,14 @@ impl NodeIdGenerator {
         start_line: usize,
         end_line: usize,
         http_method: &str,
-        path: &str,
+        full_path: &str,
     ) -> u32 {
         let key = (
             file_path.to_string(),
             start_line,
             end_line,
             http_method.to_string(),
-            path.to_string(),
+            full_path.to_string(),
         );
 
         if let Some(&id) = self.endpoint_ids.get(&key) {
@@ -193,7 +193,7 @@ impl NodeIdGenerator {
         start_line: usize,
         end_line: usize,
         http_method: &str,
-        path: &str,
+        full_path: &str,
     ) -> Option<u32> {
         self.endpoint_ids
             .get(&(
@@ -201,7 +201,7 @@ impl NodeIdGenerator {
                 start_line,
                 end_line,
                 http_method.to_string(),
-                path.to_string(),
+                full_path.to_string(),
             ))
             .copied()
     }
@@ -289,7 +289,7 @@ impl<'a> GraphMapper<'a> {
                 endpoint_node.start_line as usize,
                 endpoint_node.end_line as usize,
                 &endpoint_node.http_method,
-                &endpoint_node.path,
+                &endpoint_node.full_path,
             );
         }
 

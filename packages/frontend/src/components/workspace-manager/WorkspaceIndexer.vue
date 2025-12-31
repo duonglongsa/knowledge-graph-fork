@@ -33,6 +33,14 @@ const hasProgress = computed(
     projectEventHistory.value.length > 0,
 );
 
+const configFileCount = computed(() => {
+  if (!propertyFiles.value.trim()) return 0;
+  return propertyFiles.value
+    .split(',')
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0).length;
+});
+
 const handleIndex = async () => {
   if (!canIndex.value) return;
 
@@ -158,14 +166,28 @@ const getEventTimestamp = (event: WorkspaceIndexingEvent | ProjectIndexingEvent)
           @keydown.enter="handleIndex"
         />
 
-        <Input
-          v-model="propertyFiles"
-          placeholder="config/app.properties, config/app-prod.yml (optional)"
-          :disabled="isIndexing"
-          class="h-6 text-xs font-mono bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary/20"
-          :aria-label="'Java property files (comma-separated)'"
-          @keydown.enter="handleIndex"
-        />
+        <div class="space-y-1">
+          <div class="relative">
+            <Input
+              v-model="propertyFiles"
+              placeholder="config/app.properties, config/app-prod.yml (optional)"
+              :disabled="isIndexing"
+              class="h-6 text-xs font-mono bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary/20 pr-12"
+              :aria-label="'Java property files (comma-separated)'"
+              @keydown.enter="handleIndex"
+            />
+            <span
+              v-if="configFileCount > 0"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
+            >
+              {{ configFileCount }} file{{ configFileCount > 1 ? 's' : '' }}
+            </span>
+          </div>
+          <p class="text-[10px] text-muted-foreground px-1">
+            Java config files for resolving ${...} placeholders. Supports .properties, .yml/.yaml,
+            .json
+          </p>
+        </div>
 
         <div class="flex gap-1.5">
           <Button

@@ -749,6 +749,8 @@ pub struct EndpointNode {
     pub path: String,
     /// Complete path with base (e.g., /api/v1/users/{id})
     pub full_path: String,
+    /// Spring Boot context-path from configuration (e.g., /retail-api)
+    pub context_path: Option<String>,
     /// Content-Type consumed (e.g., application/json)
     pub consumes: Option<String>,
     /// Content-Type produced (e.g., application/json)
@@ -787,6 +789,7 @@ impl EndpointNode {
             http_method,
             path,
             full_path,
+            context_path: None,
             consumes: None,
             produces: None,
             description: None,
@@ -809,6 +812,7 @@ impl NodeFieldAccess for EndpointNode {
             "http_method" => Some(self.http_method.clone()),
             "path" => Some(self.path.clone()),
             "full_path" => Some(self.full_path.clone()),
+            "context_path" => self.context_path.clone(),
             "consumes" => self.consumes.clone(),
             "produces" => self.produces.clone(),
             "description" => self.description.clone(),

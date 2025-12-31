@@ -53,6 +53,52 @@ impl ServiceCallExtractor {
         }
     }
 
+    /// Extract Spring Boot context-path from loaded properties
+    ///
+    /// Checks for:
+    /// 1. `server.servlet.context-path` (Spring Boot 2.x+)
+    /// 2. `server.context-path` (Spring Boot 1.x)
+    ///
+    /// # Returns
+    /// * `Some(String)` - Normalized context path (starts with /, no trailing /)
+    /// * `None` - If no context path configured
+    pub fn get_context_path(&self) -> Option<String> {
+        // Try Spring Boot 2.x+ property first
+        let context_path = self.property_resolver.resolve("${server.servlet.context-path}");
+        if !context_path.starts_with("${") {
+            return Some(Self::normalize_context_path(&context_path));
+        }
+
+        // Try Spring Boot 1.x property (deprecated but still supported)
+        let context_path = self.property_resolver.resolve("${server.context-path}");
+        if !context_path.starts_with("${") {
+            return Some(Self::normalize_context_path(&context_path));
+        }
+
+        None
+    }
+
+    /// Normalize context path to ensure consistent format
+    /// - Ensures it starts with /
+    /// - Removes trailing /
+    /// - Trims whitespace
+    fn normalize_context_path(path: &str) -> String {
+        let path = path.trim();
+
+        if path.is_empty() {
+            return String::new();
+        }
+
+        let path = if path.starts_with('/') {
+            path.to_string()
+        } else {
+            format!("/{}", path)
+        };
+
+        // Remove trailing slash
+        path.trim_end_matches('/').to_string()
+    }
+
     /// Resolve a value through field resolution → property resolution pipeline
     ///
     /// # Arguments

@@ -76,6 +76,7 @@ pub static ENDPOINT_TABLE: NodeTable = NodeTable {
         ColumnDefinition::new("http_method"),           // GET, POST, PUT, DELETE, PATCH, etc.
         ColumnDefinition::new("path"),                  // Endpoint path: /api/users/{id}
         ColumnDefinition::new("full_path"),             // Complete path with base: /api/v1/users/{id}
+        ColumnDefinition::new("context_path").nullable(), // Spring Boot context-path from config: /retail-api
         ColumnDefinition::new("consumes").nullable(),   // Content-Type consumed (application/json)
         ColumnDefinition::new("produces").nullable(),   // Content-Type produced (application/json)
         ColumnDefinition::new("description").nullable(), // Optional description

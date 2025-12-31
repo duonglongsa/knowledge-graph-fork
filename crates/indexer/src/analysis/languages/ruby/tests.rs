@@ -61,6 +61,7 @@ async fn setup_ruby_reference_pipeline(database: &Arc<KuzuDatabase>) -> RubyRefe
         worker_threads: 1, // Use single thread for deterministic testing
         max_file_size: 5_000_000,
         respect_gitignore: false, // Don't use gitignore in tests
+        java_property_files: vec![],
     };
 
     // Create output directory for this test

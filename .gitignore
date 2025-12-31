@@ -1,6 +1,5 @@
 # Rust
 .cargo/
-target
 report.xml
 
 # Output
@@ -24,9 +23,6 @@ yarn-debug.log
 
 # MacOS
 .DS_Store
-
-# Compiled libraries
-lib/
 
 # IDEs
 .idea/
@@ -62,3 +58,7 @@ pipline fail/
 
 # Profiling - Samply
 profile.json.gz
+
+vendor
+
+target

@@ -220,7 +220,7 @@ impl WriterService {
                                 n.start_line as usize,
                                 n.end_line as usize,
                                 &n.http_method,
-                                &n.path,
+                                &n.full_path,
                             )
                             .unwrap_or(0)
                     },

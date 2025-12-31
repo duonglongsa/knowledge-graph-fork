@@ -67,6 +67,7 @@ pub async fn setup_java_reference_pipeline(database: &Arc<KuzuDatabase>) -> Java
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     let output_dir = local_repo.workspace_path.join("output");

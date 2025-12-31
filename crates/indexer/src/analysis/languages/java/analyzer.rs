@@ -34,6 +34,8 @@ pub struct JavaAnalyzer {
     /// Global definition index: All Java definitions from all processed files
     /// Used for cross-file field resolution (Phase 2)
     pub(crate) all_java_definitions: Vec<JavaDefinitionInfo>,
+    /// Spring Boot context-path from configuration files
+    context_path: Option<String>,
 }
 
 impl JavaAnalyzer {
@@ -45,6 +47,7 @@ impl JavaAnalyzer {
             endpoint_nodes: Vec::new(),
             service_call_nodes: Vec::new(),
             all_java_definitions: Vec::new(),
+            context_path: None,
         }
     }
 
@@ -57,7 +60,42 @@ impl JavaAnalyzer {
     /// * `Ok(usize)` - Number of properties loaded successfully
     /// * `Err(String)` - Error message if loading fails
     pub fn load_property_files(&mut self, property_file_paths: &[String]) -> Result<usize, String> {
-        self.service_call_extractor.load_property_files(property_file_paths)
+        let result = self.service_call_extractor.load_property_files(property_file_paths);
+
+        // Extract and cache context-path after loading properties
+        if result.is_ok() {
+            self.context_path = self.service_call_extractor.get_context_path();
+            if let Some(ref path) = self.context_path {
+                log::info!(
+                    "[JAVA_ANALYZER] Extracted context-path: '{}' from property files",
+                    path
+                );
+            }
+        }
+
+        result
+    }
+
+    /// Extract Spring Boot context-path from loaded property files
+    ///
+    /// Looks for these properties in order:
+    /// 1. `server.servlet.context-path` (Spring Boot 2.x+)
+    /// 2. `server.context-path` (Spring Boot 1.x, deprecated)
+    ///
+    /// # Returns
+    /// * `Some(String)` - Context path if found (e.g., "/retail-api")
+    /// * `None` - If no context path is configured
+    ///
+    /// # Example
+    /// ```
+    /// let mut analyzer = JavaAnalyzer::new();
+    /// analyzer.load_property_files(&["src/main/resources/application.properties"])?;
+    /// if let Some(context_path) = analyzer.get_context_path() {
+    ///     println!("Context path: {}", context_path);
+    /// }
+    /// ```
+    pub fn get_context_path(&self) -> Option<String> {
+        self.service_call_extractor.get_context_path()
     }
 
     /// Phase 2: Pre-collect all Java definitions for cross-file resolution
@@ -95,6 +133,7 @@ impl JavaAnalyzer {
         let extraction_context = ExtractionContext {
             constant_resolver: &self.constant_resolver,
             all_definitions: &self.all_java_definitions,
+            context_path: self.context_path.as_deref(),
         };
 
         if let Some(defs) = file_result.definitions.iter_java() {

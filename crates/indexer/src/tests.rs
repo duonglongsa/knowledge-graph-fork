@@ -163,6 +163,7 @@ async fn setup_reindexing_pipeline(
         worker_threads: 1, // Use single thread for deterministic testing
         max_file_size: 5_000_000,
         respect_gitignore: false, // Don't use gitignore in tests
+        java_property_files: vec![],
     };
 
     // Create output directory for this test
@@ -534,6 +535,7 @@ async fn setup_end_to_end_kuzu(temp_repo: &LocalGitRepository) -> Arc<KuzuDataba
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     // Run full processing pipeline
@@ -575,6 +577,7 @@ async fn test_new_indexer_with_gitalisk_file_source() {
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     let temp_output_dir = temp_repo.workspace_path.join("output");
@@ -622,6 +625,7 @@ async fn test_new_indexer_with_path_file_source() {
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     let temp_output_dir = temp_repo.workspace_path.join("output");
@@ -667,6 +671,7 @@ async fn test_full_indexing_pipeline() {
         worker_threads: 1, // Use single thread for deterministic testing
         max_file_size: 5_000_000,
         respect_gitignore: false, // Don't use gitignore in tests
+        java_property_files: vec![],
     };
 
     // Create output directory for this test
@@ -818,6 +823,7 @@ async fn test_inheritance_relationships() {
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     // Run full processing
@@ -1144,6 +1150,7 @@ async fn test_detailed_data_inspection() {
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     // Run full processing pipeline
@@ -1214,6 +1221,7 @@ async fn test_parquet_file_structure() {
         worker_threads: 1,
         max_file_size: 5_000_000,
         respect_gitignore: false,
+        java_property_files: vec![],
     };
 
     // Create a known output directory

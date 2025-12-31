@@ -39,14 +39,10 @@ const endpointPaths = {
   graph_search: '/api/graph/search/{workspace_folder_path}/{project_path}',
   graph_stats: '/api/graph/stats/{workspace_folder_path}/{project_path}',
   context_exclusion: '/api/project/context-exclusion',
-} satisfies Record<keyof ApiContract, ApiContract[keyof ApiContract]['path']>;
-
-// Additional endpoints not yet in ApiContract (types are generated from Rust via ts-rs)
-const additionalEndpointPaths = {
   java_endpoints: '/api/graph/java-endpoints/{workspace_folder_path}/{project_path}',
   java_service_calls: '/api/graph/java-service-calls/{workspace_folder_path}/{project_path}',
   endpoint_flow: '/api/graph/endpoint-flow/{workspace_folder_path}/{project_path}/{endpoint_id}',
-};
+} satisfies Record<keyof ApiContract, ApiContract[keyof ApiContract]['path']>;
 
 // Java service call types (until ts-rs generates them from Rust)
 export interface JavaServiceCall {
@@ -364,7 +360,7 @@ export class ApiClient extends HttpClient {
     limit: number = 1000,
   ): Promise<JavaEndpointsSuccessResponse> {
     return this.get<JavaEndpointsSuccessResponse>(
-      additionalEndpointPaths.java_endpoints,
+      endpointPaths.java_endpoints,
       undefined,
       {
         workspace_folder_path: workspaceFolderPath,
@@ -380,7 +376,7 @@ export class ApiClient extends HttpClient {
     limit: number = 1000,
   ): Promise<JavaServiceCallsSuccessResponse> {
     return this.get<JavaServiceCallsSuccessResponse>(
-      additionalEndpointPaths.java_service_calls,
+      endpointPaths.java_service_calls,
       undefined,
       {
         workspace_folder_path: workspaceFolderPath,
@@ -397,7 +393,7 @@ export class ApiClient extends HttpClient {
     maxDepth: number = 5,
   ): Promise<import('@gitlab-org/gkg').EndpointFlowResponse> {
     return this.get<import('@gitlab-org/gkg').EndpointFlowResponse>(
-      additionalEndpointPaths.endpoint_flow,
+      endpointPaths.endpoint_flow,
       undefined,
       {
         workspace_folder_path: workspaceFolderPath,
